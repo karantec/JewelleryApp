@@ -3,7 +3,7 @@ const createError = require('http-errors');
 const morgan = require('morgan');
 const cors = require('cors');
 const connectDB = require('./config/db');
-const courseRoutes=require('./routes/course.routes')
+const UserRoutes=require('./routes/user.routes')
 require('dotenv').config();
 
 const app = express();
@@ -17,7 +17,7 @@ app.get('/', async (req, res, next) => {
 });
 app.use(cors());
 // app.use('/api', require('./routes/api.route'));
-app.use('/course', courseRoutes);
+app.use('/auth', UserRoutes);
 
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
