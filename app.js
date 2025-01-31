@@ -4,6 +4,7 @@ const morgan = require('morgan');
 const cors = require('cors');
 const connectDB = require('./config/db');
 const UserRoutes=require('./routes/user.routes')
+const GoldRoutes=require('./routes/product.routes');
 require('dotenv').config();
 
 const app = express();
@@ -18,6 +19,7 @@ app.get('/', async (req, res, next) => {
 app.use(cors());
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
+app.use('/gold',GoldRoutes);
 
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
