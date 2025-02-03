@@ -1,34 +1,69 @@
-const bcrypt = require('bcryptjs');
-const User = require('../models/User.model');
 
+const User = require('../models/User.model');
 // User Signup
+const bcrypt = require('bcryptjs');
+ // Adjust the path as per your project structure
+
 const userSignup = async (req, res) => {
     try {
-        const { name, email, password } = req.body;
+        const { name, email, password, phone, profileImage, addresses } = req.body;
 
-        if (!name || !email || !password) {
+        // Validate required fields
+        if (!name || !email || !password || !phone || !profileImage) {
             return res.status(400).json({ message: 'All fields are required' });
         }
 
+        // Check if the user already exists by email
         const existingUser = await User.findOne({ email });
         if (existingUser) {
             return res.status(400).json({ message: 'Email already in use' });
         }
 
+        // Hash the password
         const hashedPassword = await bcrypt.hash(password, 10);
 
+        // Create a new user instance
         const newUser = new User({
             name,
             email,
-            password: hashedPassword
+            password: hashedPassword,
+            phone,
+            profileImage,
+            addresses: addresses || [] // Default to empty array if no addresses are provided
         });
 
+        // Save the user to the database
         await newUser.save();
+
+        // Respond with success message
         res.status(201).json({ message: 'User registered successfully' });
     } catch (error) {
-        res.status(500).json({ message: 'Signup failed' });
+        console.error(error); // Log the error for debugging purposes
+        res.status(500).json({ message: 'Signup failed', error: error.message });
     }
 };
+
+
+
+// Get All Users
+const getAllUsers = async (req, res) => {
+    try {
+        console.log("Fetching all users..."); // Debugging log
+
+        const users = await User.find().select("-password");
+
+        if (users.length === 0) {
+            return res.status(404).json({ message: "No users found" });
+        }
+
+        res.status(200).json(users);
+    } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).json({ message: "Failed to fetch users" });
+    }
+};
+
+
 
 // User Login
 const userLogin = async (req, res) => {
@@ -55,4 +90,4 @@ const userLogin = async (req, res) => {
     }
 };
 
-module.exports = { userSignup, userLogin };
+module.exports = { userSignup, userLogin,getAllUsers };
