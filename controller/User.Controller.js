@@ -43,7 +43,23 @@ const userSignup = async (req, res) => {
     }
 };
 
+const getUserById = async (req, res) => {
+    try {
+        const { id } = req.params;
 
+        // Find the user by ID and exclude the password field
+        const user = await User.findById(id).select("-password");
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        res.status(200).json(user);
+    } catch (error) {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ message: "Failed to fetch user" });
+    }
+};
 
 // Get All Users
 const getAllUsers = async (req, res) => {
@@ -90,4 +106,4 @@ const userLogin = async (req, res) => {
     }
 };
 
-module.exports = { userSignup, userLogin,getAllUsers };
+module.exports = { userSignup, userLogin,getAllUsers, getUserById };

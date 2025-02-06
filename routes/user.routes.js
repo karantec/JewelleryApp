@@ -1,4 +1,4 @@
-const { userSignup, userLogin, getAllUsers } = require('../controller/User.Controller');
+const { userSignup, userLogin, getAllUsers,getUserById } = require('../controller/User.Controller');
 
 const router = require('express').Router();
 
@@ -10,6 +10,9 @@ router.get('/', (req, res) => {
 // Signup Route
 router.post('/signup', userSignup);
 
+
+//get user route 
+router.get("/:id", getUserById);
 //get user route 
 router.get("/users", getAllUsers);
 
