@@ -1,4 +1,6 @@
-const { userSignup, userLogin, getAllUsers,getUserById } = require('../controller/User.Controller');
+
+const { userSignup, userLogin, getAllUsers, getUserById } = require('../controller/User.Controller');
+const { verifyToken } = require('../middleware/authmiddleware');
 
 const router = require('express').Router();
 
@@ -10,14 +12,11 @@ router.get('/', (req, res) => {
 // Signup Route
 router.post('/signup', userSignup);
 
-
-//get user route 
-router.get("/:id", getUserById);
-//get user route 
-router.get("/users", getAllUsers);
-
 // Login Route
 router.post('/login', userLogin);
 
+// Protected Routes (Require Authentication)
+router.get('/users', verifyToken, getAllUsers);
+router.get('/:id', verifyToken, getUserById);
 
 module.exports = router;
