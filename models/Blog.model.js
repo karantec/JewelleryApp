@@ -3,11 +3,12 @@ const mongoose = require('mongoose');
 const blogSchema = new mongoose.Schema({
     title: { type: String, required: true },
     content: { type: String, required: true },
-    tags: { type: [String], default: [] }, // Tags related to the blog post
+    tags: { type: [String], default: [] },
     createdAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
-    isPublished: { type: Boolean, default: false }, // Whether the blog is published or in draft mode
-    publishedAt: { type: Date }
+    isPublished: { type: Boolean, default: false },
+    publishedAt: { type: Date },
+    image: { type: String }, // Add this field to store the image URL or path
 });
 
 // Middleware to update the updatedAt field before saving
