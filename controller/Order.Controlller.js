@@ -9,11 +9,15 @@ const createOrder = async (req, res) => {
     try {
         const { userId, products, totalAmount, shippingAddress } = req.body;
 
-        // Ensure the user is authenticated by comparing the token user with the provided userId
-        if (!req.user || req.user._id.toString() !== userId) {
+        // Enhanced authentication check
+        if (!req.user) {
+            return res.status(401).json({ message: 'Authentication required' });
+        }
+
+        // Verify user authorization
+        if (req.user._id && req.user._id.toString() !== userId) {
             return res.status(403).json({ message: 'You are not authorized to create this order' });
-          }
-      
+        }
 
         // Validate if user exists
         const user = await User.findById(userId);
@@ -32,7 +36,7 @@ const createOrder = async (req, res) => {
             }
 
             // Check if product is available
-            if (!product.isAvailable) {  // Use isAvailable instead of inStock
+            if (!product.isAvailable) {
                 return res.status(400).json({ 
                     message: `Product is not available for order: ${product.name}` 
                 });
