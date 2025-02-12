@@ -8,6 +8,7 @@ const GoldRoutes=require('./routes/product.routes');
 const homePageRoutes=require('./routes/Home.routes');
 const OrderRoutes=require('./routes/Order.routes');
 const addressRoutes = require('./routes/address.routes'); 
+const blogRoutes=require('./routes/blog.routes');
 require('dotenv').config();
 
 const app = express();
@@ -26,6 +27,7 @@ app.use('/gold',GoldRoutes);
 app.use("/home", homePageRoutes);
 app.use('/order',OrderRoutes); 
 app.use('/address', addressRoutes);
+app.use('/blog',blogRoutes)
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
   next(createError.NotFound());

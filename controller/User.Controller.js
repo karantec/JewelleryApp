@@ -1,4 +1,4 @@
-
+const mongoose = require("mongoose");
 const User = require('../models/User.model');
 // User Signup
 const bcrypt = require('bcryptjs');
@@ -44,43 +44,45 @@ const userSignup = async (req, res) => {
 };
 
 const getUserById = async (req, res) => {
-    try {
-        const { id } = req.params;
-
-        // Find the user by ID and exclude the password field
-        const user = await User.findById(id).select("-password");
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        res.status(200).json(user);
-    } catch (error) {
-        console.error("Error fetching user:", error);
-        res.status(500).json({ message: "Failed to fetch user" });
+    const { id } = req.params;
+  
+    // Validate that the ID is a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
     }
-};
-
-// Get All Users
-const getAllUsers = async (req, res) => {
+  
     try {
-        console.log("Fetching all users..."); // Debugging log
-
-        const users = await User.find().select("-password");
-
-        if (users.length === 0) {
-            return res.status(404).json({ message: "No users found" });
-        }
-
-        res.status(200).json(users);
+      const user = await User.findById(id).select("-password");
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      res.status(200).json(user);
     } catch (error) {
-        console.error("Error fetching users:", error);
-        res.status(500).json({ message: "Failed to fetch users" });
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
     }
-};
-
-
-
+  };
+  
+  // Get all users
+  const getAllUsers = async (req, res) => {
+    try {
+      console.log("Fetching all users...");
+  
+      const users = await User.find().select("-password");
+  
+      console.log("Users found:", users); // Log the data
+  
+      if (!users || users.length === 0) {
+        return res.status(404).json({ message: "No users found" });
+      }
+  
+      res.status(200).json(users);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      res.status(500).json({ message: "Failed to fetch users", error: error.message });
+    }
+  };
+  
 // User Login
 const userLogin = async (req, res) => {
     try {
