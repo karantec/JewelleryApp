@@ -16,17 +16,17 @@ const createOrder = async (req, res) => {
     try {
         const { userId, products, totalAmount, shippingAddress } = req.body;
 
-        // Enhanced authentication check
+        // 🔒 Authentication check
         if (!req.user) {
             return res.status(401).json({ message: 'Authentication required' });
         }
 
-        // Verify user authorization
-        if (req.user._id && req.user._id.toString() !== userId) {
+        // 🔑 Verify user authorization
+        if (req.user._id.toString() !== userId) {
             return res.status(403).json({ message: 'You are not authorized to create this order' });
         }
 
-        // Validate if user exists
+        // 🧑‍💻 Validate user existence
         const user = await User.findById(userId);
         if (!user) {
             return res.status(404).json({ message: 'User not found' });
@@ -34,6 +34,7 @@ const createOrder = async (req, res) => {
 
         let calculatedTotal = 0;
 
+        // 🛒 Validate products and calculate total price
         for (const item of products) {
             const product = await GoldProduct.findById(item.productId);
             if (!product) {
@@ -49,12 +50,11 @@ const createOrder = async (req, res) => {
                 });
             }
 
-            // Calculate using discounted price
+            // 🏷️ Validate price
             const latestPrice = product.discountedPrice;
-
             const cartPrice = item.price;
-
             const priceDiscrepancy = Math.abs(latestPrice - cartPrice) / cartPrice;
+
             if (priceDiscrepancy > 0.05) {
                 return res.status(400).json({
                     message: `Price has changed significantly for ${product.name}. Please review your cart.`,
@@ -66,6 +66,7 @@ const createOrder = async (req, res) => {
             calculatedTotal += latestPrice * item.quantity;
         }
 
+        // 💰 Validate total amount
         if (Math.abs(calculatedTotal - totalAmount) > 1) {
             return res.status(400).json({
                 message: 'Order total does not match product prices',
@@ -74,7 +75,20 @@ const createOrder = async (req, res) => {
             });
         }
 
-        // Create new order in DB
+        // 📦 Validate shipping address
+        if (
+            !shippingAddress ||
+            !shippingAddress.shippingAddress ||
+            !shippingAddress.city ||
+            !shippingAddress.state ||
+            !shippingAddress.zipcode ||
+            !shippingAddress.country ||
+            !shippingAddress.primaryPhone
+        ) {
+            return res.status(400).json({ message: 'Shipping address is incomplete' });
+        }
+
+        // 🛍️ Create new order in DB
         const newOrder = new Order({
             userId,
             products: products.map(item => ({
@@ -85,15 +99,21 @@ const createOrder = async (req, res) => {
                 weightAtPurchase: item.weight
             })),
             totalAmount,
-            shippingAddress,
-            orderDate: new Date(),
-            status: 'pending',
-            goldPriceAtPurchase: await GoldPriceService.fetchGoldPrice()
+            orderStatus: 'Pending',
+            shippingAddress: shippingAddress.shippingAddress,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            zipcode: shippingAddress.zipcode,
+            country: shippingAddress.country,
+            landmark: shippingAddress.landmark,
+            primaryPhone: shippingAddress.primaryPhone,
+            secondaryPhone: shippingAddress.secondaryPhone,
+            goldPriceAtPurchase: await GoldPriceService.fetchGoldPrice(),
         });
 
         await newOrder.save();
 
-        // Razorpay order creation
+        // 🏦 Razorpay order creation
         const razorpayOrder = await razorpay.orders.create({
             amount: totalAmount * 100, // Amount in paise (100 paise = 1 INR)
             currency: 'INR',
@@ -105,12 +125,12 @@ const createOrder = async (req, res) => {
             return res.status(500).json({ message: 'Failed to create Razorpay order' });
         }
 
-        // Save Razorpay order details and IDs in the database
+        // 💾 Save Razorpay details in DB
         newOrder.razorpayOrderId = razorpayOrder.id;
-        newOrder.razorpayOrderDetails = razorpayOrder; // Storing the entire Razorpay order details
+        newOrder.razorpayOrderDetails = razorpayOrder;
         await newOrder.save();
 
-        // Send Razorpay order details to the frontend
+        // 📩 Send response to frontend
         res.status(201).json({
             message: 'Order created successfully',
             order: newOrder,
@@ -125,6 +145,7 @@ const createOrder = async (req, res) => {
         });
     }
 };
+
 
 
 // Confirm Razorpay payment (Webhook handler)
