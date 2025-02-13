@@ -1,10 +1,17 @@
+const Razorpay = require('razorpay');
 const Order = require('../models/Order.model');
 const User = require('../models/User.model');
 const GoldProduct = require('../models/GoldProduct.model');
 const GoldPriceService = require('../services/goldPriceService');
 const mongoose = require('mongoose'); 
+const crypto = require('crypto');
+// Initialize Razorpay instance with your credentials
+const razorpay = new Razorpay({
+    key_id: 'rzp_test_u7P7p4HHl2SKoP',  // Set your Razorpay key ID here
+    key_secret: 'nCMACmkEiEAuMwfmmpv2HELd' // Set your Razorpay key secret here
+});
 
-// Create a new order
+// Create a new order with Razorpay integration
 const createOrder = async (req, res) => {
     try {
         const { userId, products, totalAmount, shippingAddress } = req.body;
@@ -45,9 +52,6 @@ const createOrder = async (req, res) => {
             // Calculate using discounted price
             const latestPrice = product.discountedPrice;
 
-            // Debugging logs
-            console.log(`Product: ${product.name}, Latest Price: ₹${latestPrice}`);
-
             const cartPrice = item.price;
 
             const priceDiscrepancy = Math.abs(latestPrice - cartPrice) / cartPrice;
@@ -70,6 +74,7 @@ const createOrder = async (req, res) => {
             });
         }
 
+        // Create new order in DB
         const newOrder = new Order({
             userId,
             products: products.map(item => ({
@@ -88,9 +93,28 @@ const createOrder = async (req, res) => {
 
         await newOrder.save();
 
-        res.status(201).json({ 
-            message: 'Order created successfully', 
-            order: newOrder 
+        // Razorpay order creation
+        const razorpayOrder = await razorpay.orders.create({
+            amount: totalAmount * 100, // Amount in paise (100 paise = 1 INR)
+            currency: 'INR',
+            receipt: `order_receipt_${newOrder._id}`,
+            payment_capture: 1 // Auto-capture payment
+        });
+
+        if (!razorpayOrder) {
+            return res.status(500).json({ message: 'Failed to create Razorpay order' });
+        }
+
+        // Save Razorpay order details and IDs in the database
+        newOrder.razorpayOrderId = razorpayOrder.id;
+        newOrder.razorpayOrderDetails = razorpayOrder; // Storing the entire Razorpay order details
+        await newOrder.save();
+
+        // Send Razorpay order details to the frontend
+        res.status(201).json({
+            message: 'Order created successfully',
+            order: newOrder,
+            razorpayOrder
         });
 
     } catch (error) {
@@ -99,7 +123,63 @@ const createOrder = async (req, res) => {
             message: 'Error creating order', 
             error: error.message 
         });
-    }  
+    }
+};
+
+
+// Confirm Razorpay payment (Webhook handler)
+const confirmPayment = async (req, res) => {
+    try {
+        const { paymentId, orderId, signature } = req.body;
+
+        // Verify the signature sent by Razorpay
+        const generatedSignature = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(orderId + "|" + paymentId)
+            .digest('hex');
+
+        if (generatedSignature !== signature) {
+            return res.status(400).json({ message: 'Invalid signature' });
+        }
+
+        // Verify payment status using Razorpay API
+        const paymentStatus = await verifyPaymentStatus(paymentId);
+
+        if (!paymentStatus) {
+            return res.status(400).json({ message: 'Unable to verify payment status' });
+        }
+
+        // If payment is pending, handle accordingly
+        if (paymentStatus.status === 'pending') {
+            return res.status(200).json({ message: 'Payment is pending. Please try again later' });
+        }
+
+        // Find order and update payment status
+        const order = await Order.findById(orderId);
+        if (!order) {
+            return res.status(404).json({ message: 'Order not found' });
+        }
+
+        // If the payment is successful, update the order status
+        if (paymentStatus.status === 'captured') {
+            order.status = 'paid';
+            order.paymentDetails = {
+                paymentId,
+                orderId,
+                signature
+            };
+            await order.save();
+
+            res.status(200).json({ message: 'Payment successfully confirmed', order });
+        } else {
+            res.status(400).json({ message: 'Payment failed or cancelled' });
+        }
+    } catch (error) {
+        console.error('🔥 Payment confirmation error:', error);
+        res.status(500).json({
+            message: 'Error confirming payment',
+            error: error.message
+        });
+    }
 };
 
 // Get all orders with detailed product information
@@ -236,6 +316,7 @@ const getOrdersByUser = async (req, res) => {
 
 module.exports = {
     createOrder,
+    confirmPayment,
     getAllOrders,
     getOrderById,
     updateOrder,

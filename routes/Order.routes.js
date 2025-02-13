@@ -1,3 +1,4 @@
+// routes/Order.routes.js
 const express = require('express');
 const { 
     createOrder, 
@@ -6,10 +7,8 @@ const {
     updateOrder, 
     deleteOrder, 
     getOrdersByUser, 
-    updateOrderStatus, 
-    verifyPayment 
+    confirmPayment
 } = require('../controller/Order.Controlller');
-
 const { verifyToken } = require('../middleware/authmiddleware');
 const router = express.Router();
 
@@ -17,7 +16,7 @@ const router = express.Router();
 router.post('/create', verifyToken, createOrder);
 
 // Verify payment (Protected: Only authenticated users)
-router.post('/verify-payment', verifyToken, verifyPayment);
+router.post('/verify-payment', verifyToken, confirmPayment);
 
 // Get all orders (Protected: Admin access only)
 router.get('/', verifyToken, getAllOrders);
@@ -32,9 +31,9 @@ router.get('/user/:userId', verifyToken, getOrdersByUser);
 router.put('/:id', verifyToken, updateOrder);
 
 // Update order status (Protected: Admin or authorized personnel)
-router.patch('/:id/status', verifyToken, updateOrderStatus);
+// router.patch('/:id/status', verifyToken, updateOrder);
 
-// Delete an order (Protected: Only admins can delete orders)
+// Delete an order (Soft delete: Only admins can delete orders)
 router.delete('/:id', verifyToken, deleteOrder);
 
 module.exports = router;

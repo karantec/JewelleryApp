@@ -24,18 +24,30 @@ const orderSchema = new mongoose.Schema({
     },
     orderStatus: {
         type: String,
-        enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'],
+        enum: ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled', 'Paid'],
         default: 'Pending'
     },
     shippingAddress: {
         addressLine1: { type: String, required: true },
         addressLine2: { type: String },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        zipCode: { type: String, required: true },
-        country: { type: String, required: true }
+        city: { type: String },
+        state: { type: String },
+        zipCode: { type: String },
+        country: { type: String },
+    },
+    razorpayOrderId: {
+        type: String,
+    },
+    paymentId: {
+        type: String,
+    },
+    paymentSignature: {
+        type: String,
+    },
+    razorpayOrderDetails: {  // This will store full Razorpay order details
+        type: Object
     }
-}, { timestamps: true }); // This replaces createdAt and updatedAt
+}, { timestamps: true });
 
 const Order = mongoose.model('Order', orderSchema);
 module.exports = Order;
