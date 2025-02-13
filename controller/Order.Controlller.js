@@ -10,7 +10,15 @@ const razorpay = new Razorpay({
     key_id: process.env.RAZORPAY_KEY_ID,  // Set your Razorpay key ID here
     key_secret: process.env.RAZORPAY_KEY_SECRET // Set your Razorpay key secret here
 });
-
+const verifyPaymentStatus = async (paymentId) => {
+    try {
+        const payment = await razorpayInstance.payments.fetch(paymentId);
+        return payment;
+    } catch (error) {
+        console.error('🔥 Razorpay payment verification error:', error);
+        throw new Error('Unable to verify payment status');
+    }
+};
 // Create a new order with Razorpay integration
 
 
