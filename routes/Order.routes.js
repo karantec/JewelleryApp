@@ -1,24 +1,40 @@
-const express = require('express');// Importing the verifyToken middleware
-const { createOrder, getAllOrders, getOrderById, updateOrder, deleteOrder, getOrdersByUser } = require('../controller/Order.Controlller');
+const express = require('express');
+const { 
+    createOrder, 
+    getAllOrders, 
+    getOrderById, 
+    updateOrder, 
+    deleteOrder, 
+    getOrdersByUser, 
+    updateOrderStatus, 
+    verifyPayment 
+} = require('../controller/Order.Controlller');
+
 const { verifyToken } = require('../middleware/authmiddleware');
 const router = express.Router();
 
-// Route to create a new order (protected, only accessible by authenticated users)
-router.post('/createOrder', verifyToken, createOrder);
+// Create a new order (Protected: Only authenticated users)
+router.post('/create', verifyToken, createOrder);
 
-// Route to get all orders (this can be public or protected depending on your needs, but we'll leave it open here)
-router.get('/getOrder', getAllOrders);
+// Verify payment (Protected: Only authenticated users)
+router.post('/verify-payment', verifyToken, verifyPayment);
 
-// Route to get a specific order by ID (this can be public or protected depending on your needs)
-router.get('/:id', getOrderById);
+// Get all orders (Protected: Admin access only)
+router.get('/', verifyToken, getAllOrders);
 
-// Route to get orders by a specific user ID (protected, only accessible by authenticated users)
-router.get('/getOrderByUser/:userId', verifyToken, getOrdersByUser);
+// Get a specific order by ID (Protected: User or Admin)
+router.get('/:id', verifyToken, getOrderById);
 
-// Route to update an order (protected, only accessible by authenticated users)
+// Get orders for a specific user (Protected: Only authenticated users)
+router.get('/user/:userId', verifyToken, getOrdersByUser);
+
+// Update an order (Protected: Admin or User who placed the order)
 router.put('/:id', verifyToken, updateOrder);
 
-// Route to delete an order (protected, only accessible by authenticated users)
+// Update order status (Protected: Admin or authorized personnel)
+router.patch('/:id/status', verifyToken, updateOrderStatus);
+
+// Delete an order (Protected: Only admins can delete orders)
 router.delete('/:id', verifyToken, deleteOrder);
 
 module.exports = router;
