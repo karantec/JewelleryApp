@@ -17,8 +17,8 @@ const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true },
     password: { type: String, required: true },
-    phone: { type: String, required: true },
-    profileImage: { type: String, required: true },
+    phone: { type: String, },
+    profileImage: { type: String,  },
     addresses: { type: [addressSchema], default: [] },
     createdAt: { type: Date, default: Date.now }
 });
