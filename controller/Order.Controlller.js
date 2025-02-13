@@ -7,8 +7,8 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 // Initialize Razorpay instance with your credentials
 const razorpay = new Razorpay({
-    key_id: 'rzp_test_u7P7p4HHl2SKoP',  // Set your Razorpay key ID here
-    key_secret: 'nCMACmkEiEAuMwfmmpv2HELd' // Set your Razorpay key secret here
+    key_id: process.env.RAZORPAY_KEY_ID,  // Set your Razorpay key ID here
+    key_secret: process.env.RAZORPAY_KEY_SECRET // Set your Razorpay key secret here
 });
 
 // Create a new order with Razorpay integration
