@@ -24,14 +24,8 @@ const verifyPaymentStatus = async (paymentId) => {
 
 const createOrder = async (req, res) => {
     try {
-        const { userId, products, totalAmount, shippingAddress } = req.body;
+        const { userId, products, totalAmount, shippingAddress, paymentMethod } = req.body;
 
-        // Enhanced authentication check
-        if (!req.user) {
-            return res.status(401).json({ message: 'Authentication required' });
-        }
-
-        // Verify user authorization
         if (req.user._id && req.user._id.toString() !== userId) {
             return res.status(403).json({ message: 'You are not authorized to create this order' });
         }
@@ -42,49 +36,28 @@ const createOrder = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        let calculatedTotal = 0;
+      
 
+        let calculatedTotal = 0;
         for (const item of products) {
             const product = await GoldProduct.findById(item.productId);
-            if (!product) {
-                return res.status(404).json({ 
-                    message: `Product not found: ${item.productId}` 
-                });
+            if (!product || !product.isAvailable) {
+                return res.status(400).json({ message: `Product not available: ${item.productId}` });
             }
 
-            // Check if product is available
-            if (!product.isAvailable) {
-                return res.status(400).json({ 
-                    message: `Product is not available for order: ${product.name}` 
-                });
-            }
-
-            // Calculate using discounted price
             const latestPrice = product.discountedPrice;
-
             const cartPrice = item.price;
-
-            const priceDiscrepancy = Math.abs(latestPrice - cartPrice) / cartPrice;
-            if (priceDiscrepancy > 0.05) {
-                return res.status(400).json({
-                    message: `Price has changed significantly for ${product.name}. Please review your cart.`,
-                    currentPrice: latestPrice,
-                    cartPrice
-                });
+            if (Math.abs(latestPrice - cartPrice) / cartPrice > 0.05) {
+                return res.status(400).json({ message: `Price changed for ${product.name}` });
             }
 
             calculatedTotal += latestPrice * item.quantity;
         }
 
         if (Math.abs(calculatedTotal - totalAmount) > 1) {
-            return res.status(400).json({
-                message: 'Order total does not match product prices',
-                calculated: calculatedTotal,
-                submitted: totalAmount
-            });
+            return res.status(400).json({ message: 'Order total mismatch' });
         }
 
-        // Create new order in DB
         const newOrder = new Order({
             userId,
             products: products.map(item => ({
@@ -97,42 +70,39 @@ const createOrder = async (req, res) => {
             totalAmount,
             shippingAddress,
             orderDate: new Date(),
-            status: 'pending',
+            status: paymentMethod === 'COD' ? 'pending' : 'created',
+            paymentMethod,
             goldPriceAtPurchase: await GoldPriceService.fetchGoldPrice()
         });
 
         await newOrder.save();
 
-        // Razorpay order creation
-        const razorpayOrder = await razorpay.orders.create({
-            amount: totalAmount * 100, // Amount in paise (100 paise = 1 INR)
-            currency: 'INR',
-            receipt: `order_receipt_${newOrder._id}`,
-            payment_capture: 1 // Auto-capture payment
-        });
+        if (paymentMethod === 'ONLINE') {
+            const razorpayOrder = await razorpay.orders.create({
+                amount: totalAmount * 100,
+                currency: 'INR',
+                receipt: `order_receipt_${newOrder._id}`,
+                payment_capture: 1
+            });
 
-        if (!razorpayOrder) {
-            return res.status(500).json({ message: 'Failed to create Razorpay order' });
+            if (!razorpayOrder) {
+                return res.status(500).json({ message: 'Failed to create Razorpay order' });
+            }
+
+            newOrder.razorpayOrderId = razorpayOrder.id;
+            newOrder.razorpayOrderDetails = razorpayOrder;
+            await newOrder.save();
         }
 
-        // Save Razorpay order details and IDs in the database
-        newOrder.razorpayOrderId = razorpayOrder.id;
-        newOrder.razorpayOrderDetails = razorpayOrder; // Storing the entire Razorpay order details
-        await newOrder.save();
-
-        // Send Razorpay order details to the frontend
         res.status(201).json({
             message: 'Order created successfully',
             order: newOrder,
-            razorpayOrder
+            razorpayOrder: paymentMethod === 'ONLINE' ? newOrder.razorpayOrderDetails : null
         });
 
     } catch (error) {
         console.error('🔥 Order creation error:', error);
-        res.status(500).json({ 
-            message: 'Error creating order', 
-            error: error.message 
-        });
+        res.status(500).json({ message: 'Error creating order', error: error.message });
     }
 };
 
@@ -196,16 +166,13 @@ const confirmPayment = async (req, res) => {
 const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find()
-            .populate('userId', 'name email phone') // Select specific user fields
+            .populate('userId', 'name email phone')
             .populate('products.productId', 'name category karat weight images')
-            .sort({ orderDate: -1 }); // Most recent first
+            .sort({ orderDate: -1 });
 
         res.status(200).json(orders);
     } catch (error) {
-        res.status(500).json({ 
-            message: 'Error fetching orders', 
-            error: error.message 
-        });
+        res.status(500).json({ message: 'Error fetching orders', error: error.message });
     }
 };
 
@@ -222,10 +189,7 @@ const getOrderById = async (req, res) => {
 
         res.status(200).json(order);
     } catch (error) {
-        res.status(500).json({ 
-            message: 'Error fetching order', 
-            error: error.message 
-        });
+        res.status(500).json({ message: 'Error fetching order', error: error.message });
     }
 };
 

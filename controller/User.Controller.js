@@ -46,8 +46,20 @@ const userSignup = async (req, res) => {
     // Generate token
     const token = generateToken(newUser._id);
 
-    // Respond with a success message
-    res.status(201).json({ message: 'User registered successfully', token });
+    // Respond with user data
+    res.status(201).json({
+      message: 'User registered successfully',
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        phone: newUser.phone,
+        profileImage: newUser.profileImage,
+        addresses: newUser.addresses,
+        createdAt: newUser.createdAt
+      },
+      token
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: 'Signup failed', error: error.message });
@@ -79,7 +91,20 @@ const userLogin = async (req, res) => {
     // Generate token
     const token = generateToken(user._id);
 
-    res.status(200).json({ message: 'Login successful', token });
+    // Respond with user data
+    res.status(200).json({
+      message: 'Login successful',
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        addresses: user.addresses,
+        createdAt: user.createdAt
+      },
+      token
+    });
   } catch (error) {
     res.status(500).json({ message: 'Login failed', error: error.message });
   }
