@@ -134,7 +134,7 @@ const confirmPayment = async (req, res) => {
         }
 
         // Find order and update payment status
-        const order = await Order.findById(orderId);
+        const order = await Order.findOne({ razorpayOrderId:orderId});
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }
