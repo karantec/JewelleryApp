@@ -36,8 +36,6 @@ const createOrder = async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-      
-
         let calculatedTotal = 0;
         for (const item of products) {
             const product = await GoldProduct.findById(item.productId);
@@ -70,9 +68,10 @@ const createOrder = async (req, res) => {
             totalAmount,
             shippingAddress,
             orderDate: new Date(),
-            status: paymentMethod === 'COD' ? 'pending' : 'created',
+            status: paymentMethod === 'COD' ? 'ORDER PLACED' : 'Created', // Initial status based on payment method
             paymentMethod,
-            goldPriceAtPurchase: await GoldPriceService.fetchGoldPrice()
+            goldPriceAtPurchase: await GoldPriceService.fetchGoldPrice(),
+            orderStatus: paymentMethod === 'ONLINE' ? 'Paid' : 'OrderPlaced', // Set order status for online payment
         });
 
         await newOrder.save();
@@ -106,7 +105,6 @@ const createOrder = async (req, res) => {
     }
 };
 
-
 // Confirm Razorpay payment (Webhook handler)
 const confirmPayment = async (req, res) => {
     try {
@@ -135,6 +133,7 @@ const confirmPayment = async (req, res) => {
 
         // Find order and update payment status
         const order = await Order.findOne({ razorpayOrderId:orderId});
+        
         if (!order) {
             return res.status(404).json({ message: 'Order not found' });
         }

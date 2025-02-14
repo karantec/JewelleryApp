@@ -29,13 +29,9 @@ const orderSchema = new mongoose.Schema(
       type: String,
       enum: [
         "Pending",
-        "Processing",
-        "Shipped",
-        "Delivered",
-        "Cancelled",
-        "Paid",
+        "OrderPlaced",
+        "Paid", // Add "Paid" as an enum option
       ],
-      default: "Pending",
     },
     shippingAddress: {
       addressLine: { type: String, required: true },
