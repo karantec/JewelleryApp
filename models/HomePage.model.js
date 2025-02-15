@@ -14,6 +14,13 @@ const specialSchema = new mongoose.Schema({
   image: { type: String, required: true },
 });
 
+// Schema for products like BestSelling, Feature, EveryDayElegance
+const productSchema = new mongoose.Schema({
+  tag: { type: String, required: true },
+  productId: { type: String, required: true },
+  image: { type: String, required: true },
+});
+
 // Schema for categories
 const categorySchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -29,6 +36,9 @@ const homePageSchema = new mongoose.Schema({
   },
   categories: [categorySchema],
   specials: [specialSchema],
+  bestSellingProduct: [productSchema],  // Corrected
+  featureProduct: [productSchema],      // Corrected
+  everyDayElegance: [productSchema],    // Corrected
   trendingProducts: [String],
   bestOffers: [String],
   editorialImages: [String],
