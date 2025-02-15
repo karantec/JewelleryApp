@@ -1,12 +1,12 @@
 const express = require("express");
-const { createOrUpdateHomePage, getHomePage } = require("../controller/Homepage.Controller");
+const {  createHomePage, getAllHomePages } = require("../controller/Homepage.Controller");
 
 const router = express.Router();
 
 // **Route to create or update home page configuration**
-router.post("/create", createOrUpdateHomePage);
+router.post("/create", createHomePage);
 
 // **Route to get home page configuration**
-router.get("/get", getHomePage);
+router.get("/get", getAllHomePages);
 
 module.exports = router;
