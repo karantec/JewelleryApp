@@ -12,7 +12,7 @@ const razorpay = new Razorpay({
 });
 const verifyPaymentStatus = async (paymentId) => {
     try {
-        const payment = await razorpayInstance.payments.fetch(paymentId);
+        const payment = await razorpay.payments.fetch(paymentId);
         return payment;
     } catch (error) {
         console.error('🔥 Razorpay payment verification error:', error);
