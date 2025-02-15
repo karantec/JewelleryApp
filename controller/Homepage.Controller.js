@@ -1,7 +1,7 @@
 const HomePage = require("../models/HomePage.model");
 
-// **Create or Update Home Page Configuration**
-const createOrUpdateHomePage = async (req, res) => {
+// **Create New Home Page Configuration**
+const createHomePage = async (req, res) => {
   try {
     const {
       carousel,
@@ -16,57 +16,40 @@ const createOrUpdateHomePage = async (req, res) => {
       bestSellingProduct,
     } = req.body;
 
-    // Check if a home page config already exists (assuming only one document exists)
-    let homePage = await HomePage.findOne();
+    // Create a new home page configuration
+    const newHomePage = new HomePage({
+      carousel,
+      categories,
+      specials,
+      trendingProducts,
+      bestOffers,
+      editorialImages,
+      customerReviews,
+      everyDayElegance,
+      featureProduct,
+      bestSellingProduct,
+    });
 
-    if (homePage) {
-      // Update existing home page config
-      homePage.carousel = carousel;
-      homePage.categories = categories;
-      homePage.specials = specials;
-      homePage.trendingProducts = trendingProducts;
-      homePage.bestOffers = bestOffers;
-      homePage.editorialImages = editorialImages;
-      homePage.customerReviews = customerReviews;
-      homePage.everyDayElegance = everyDayElegance;
-      homePage.featureProduct = featureProduct;
-      homePage.bestSellingProduct = bestSellingProduct;
-    } else {
-      // Create new home page config
-      homePage = new HomePage({
-        carousel,
-        categories,
-        specials,
-        trendingProducts,
-        bestOffers,
-        editorialImages,
-        customerReviews,
-        everyDayElegance,
-        featureProduct,
-        bestSellingProduct,
-      });
-    }
-
-    await homePage.save();
-    res.status(201).json({ message: "Home page configuration saved successfully", homePage });
+    await newHomePage.save();
+    res.status(201).json({ message: "New home page configuration created", newHomePage });
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
 };
 
-// **Get Home Page Configuration**
-const getHomePage = async (req, res) => {
+// **Get All Home Page Configurations**
+const getAllHomePages = async (req, res) => {
   try {
-    const homePage = await HomePage.findOne(); // Fetch the only existing homepage document
+    const homePages = await HomePage.find(); // Fetch all homepage configurations
 
-    if (!homePage) {
-      return res.status(404).json({ message: "Home page configuration not found" });
+    if (!homePages.length) {
+      return res.status(404).json({ message: "No home page configurations found" });
     }
 
-    res.status(200).json(homePage);
+    res.status(200).json(homePages);
   } catch (error) {
     res.status(500).json({ message: "Server error", error });
   }
 };
 
-module.exports = { createOrUpdateHomePage, getHomePage };
+module.exports = { createHomePage, getAllHomePages };
