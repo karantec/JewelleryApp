@@ -3,7 +3,18 @@ const HomePage = require("../models/HomePage.model");
 // **Create or Update Home Page Configuration**
 const createOrUpdateHomePage = async (req, res) => {
   try {
-    const { carousel, categories, specials, trendingProducts, bestOffers, editorialImages, customerReviews } = req.body;
+    const {
+      carousel,
+      categories,
+      specials,
+      trendingProducts,
+      bestOffers,
+      editorialImages,
+      customerReviews,
+      everyDayElegance,
+      featureProduct,
+      bestSellingProduct,
+    } = req.body;
 
     // Check if a home page config already exists (assuming only one document exists)
     let homePage = await HomePage.findOne();
@@ -17,6 +28,9 @@ const createOrUpdateHomePage = async (req, res) => {
       homePage.bestOffers = bestOffers;
       homePage.editorialImages = editorialImages;
       homePage.customerReviews = customerReviews;
+      homePage.everyDayElegance = everyDayElegance;
+      homePage.featureProduct = featureProduct;
+      homePage.bestSellingProduct = bestSellingProduct;
     } else {
       // Create new home page config
       homePage = new HomePage({
@@ -27,6 +41,9 @@ const createOrUpdateHomePage = async (req, res) => {
         bestOffers,
         editorialImages,
         customerReviews,
+        everyDayElegance,
+        featureProduct,
+        bestSellingProduct,
       });
     }
 
