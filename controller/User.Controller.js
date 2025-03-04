@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User.model');
-
+const admin = require('../utils/firebaseConfig');
 // Use the JWT secret from .env (fallback to a default for development)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
 
@@ -66,6 +66,49 @@ const userSignup = async (req, res) => {
   }
 };
 
+const sendOTP = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ message: 'Phone number is required' });
+    }
+
+    res.status(200).json({ message: 'OTP request sent successfully', phone });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to send OTP', error: error.message });
+  }
+};
+
+const verifyOTP = async (req, res) => {
+  try {
+    const { phone, otp } = req.body;
+
+    if (!phone || !otp) {
+      return res.status(400).json({ message: 'Phone and OTP are required' });
+    }
+
+    // Verify OTP with Firebase
+    const decodedToken = await admin.auth().verifyIdToken(otp);
+    if (!decodedToken) {
+      return res.status(401).json({ message: 'Invalid or expired OTP' });
+    }
+
+    // Find user by phone or create new user
+    let user = await User.findOne({ phone });
+    if (!user) {
+      user = new User({ phone });
+      await user.save();
+    }
+
+    // Generate JWT Token
+    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+
+    res.status(200).json({ message: 'Login successful', user, token });
+  } catch (error) {
+    res.status(500).json({ message: 'OTP verification failed', error: error.message });
+  }
+};
 // User Login with JWT
 const userLogin = async (req, res) => {
   try {
@@ -150,4 +193,7 @@ module.exports = {
   userLogin,
   getAllUsers,
   getUserById,
+  sendOTP,
+  verifyOTP
+
 };

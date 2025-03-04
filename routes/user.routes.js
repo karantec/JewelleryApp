@@ -1,5 +1,5 @@
 
-const { userSignup, userLogin, getAllUsers, getUserById } = require('../controller/User.Controller');
+const { userSignup, userLogin, getAllUsers, getUserById, sendOTP, verifyOTP } = require('../controller/User.Controller');
 const { verifyToken } = require('../middleware/authmiddleware');
 
 const router = require('express').Router();
@@ -9,6 +9,9 @@ router.get('/', (req, res) => {
   res.send({ message: 'Ok, API is working 🚀' });
 });
 
+
+router.post("/send-otp", sendOTP);
+router.post("/verify-otp", verifyOTP);
 // Signup Route
 router.post('/signup', userSignup);
 
