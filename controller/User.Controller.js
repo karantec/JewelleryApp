@@ -1,32 +1,28 @@
-const mongoose = require('mongoose');
-const jwt = require('jsonwebtoken');
-const bcrypt = require('bcryptjs');
-const User = require('../models/User.model');
+const mongoose = require("mongoose");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcryptjs");
+const User = require("../models/User.model");
 
 // Use the JWT secret from .env (fallback to a default for development)
-const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
+const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
 // Generate JWT Token
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '2h' });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "2h" });
 };
 
-
-const twilio = require('twilio');
+const twilio = require("twilio");
 
 // Twilio credentials (hardcoded for testing)
-const TWILIO_ACCOUNT_SID = 'ACb0b9cacfaf93ca18d7b94824fc1e4c77';
-const TWILIO_AUTH_TOKEN = 'cca3dfe91bbeb0f476ecf6389d008074';
-const TWILIO_PHONE_NUMBER = '+916297358939';
-const TWILIO_VERIFY_SERVICE_SID = 'VA997e5ada057f9aedea00fc86f9985a6d';
+const TWILIO_ACCOUNT_SID = "ACb0b9cacfaf93ca18d7b94824fc1e4c77";
+const TWILIO_AUTH_TOKEN = "cca3dfe91bbeb0f476ecf6389d008074";
+const TWILIO_PHONE_NUMBER = "+916297358939";
+const TWILIO_VERIFY_SERVICE_SID = "VA997e5ada057f9aedea00fc86f9985a6d";
 
 // Initialize Twilio client
 const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 // Send OTP function (uses hardcoded credentials)
-
-
-
 
 // User Signup
 const userSignup = async (req, res) => {
@@ -35,13 +31,13 @@ const userSignup = async (req, res) => {
 
     // Validate required fields
     if (!name || !email || !password || !phone || !profileImage) {
-      return res.status(400).json({ message: 'All fields are required' });
+      return res.status(400).json({ message: "All fields are required" });
     }
 
     // Check if the user already exists by email
     const existingUser = await User.findOne({ email });
     if (existingUser) {
-      return res.status(400).json({ message: 'Email already in use' });
+      return res.status(400).json({ message: "Email already in use" });
     }
 
     // Hash the password
@@ -65,7 +61,7 @@ const userSignup = async (req, res) => {
 
     // Respond with user data
     res.status(201).json({
-      message: 'User registered successfully',
+      message: "User registered successfully",
       user: {
         _id: newUser._id,
         name: newUser.name,
@@ -73,47 +69,49 @@ const userSignup = async (req, res) => {
         phone: newUser.phone,
         profileImage: newUser.profileImage,
         addresses: newUser.addresses,
-        createdAt: newUser.createdAt
+        createdAt: newUser.createdAt,
       },
-      token
+      token,
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ message: 'Signup failed', error: error.message });
+    res.status(500).json({ message: "Signup failed", error: error.message });
   }
 };
-
 
 const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
 
     if (!phone) {
-      return res.status(400).json({ message: 'Phone number is required' });
+      return res.status(400).json({ message: "Phone number is required" });
     }
 
-    const phoneNumber = phone.startsWith('+') ? phone : `+91${phone}`;
+    const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
 
     if (!TWILIO_VERIFY_SERVICE_SID) {
-      return res.status(500).json({ message: 'Twilio Verify Service SID is not configured' });
+      return res
+        .status(500)
+        .json({ message: "Twilio Verify Service SID is not configured" });
     }
 
     const verification = await twilioClient.verify.v2
       .services(TWILIO_VERIFY_SERVICE_SID)
       .verifications.create({
         to: phoneNumber,
-        channel: 'sms',
+        channel: "sms",
       });
 
     res.status(200).json({
-      message: 'OTP sent successfully',
+      message: "OTP sent successfully",
       verificationSid: verification.sid,
       status: verification.status,
     });
-
   } catch (error) {
-    console.error('OTP Send Error:', error);
-    res.status(500).json({ message: 'Failed to send OTP', error: error.message });
+    console.error("OTP Send Error:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to send OTP", error: error.message });
   }
 };
 const verifyOTP = async (req, res) => {
@@ -121,32 +119,41 @@ const verifyOTP = async (req, res) => {
     const { phone, otp } = req.body;
 
     if (!phone || !otp) {
-      return res.status(400).json({ message: 'Phone and OTP are required' });
+      return res.status(400).json({ message: "Phone and OTP are required" });
     }
 
     // Ensure phone number is in E.164 format
-    const phoneNumber = phone.startsWith('+') ? phone : `+91${phone}`;
+    const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
 
     // Verify OTP using Twilio
     const verificationCheck = await twilioClient.verify.v2
       .services(TWILIO_VERIFY_SERVICE_SID)
       .verificationChecks.create({
         to: phoneNumber,
-        code: otp
+        code: otp,
       });
 
-    if (verificationCheck.status !== 'approved') {
+    if (verificationCheck.status !== "approved") {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
     // Find user in database by phone
     let user = await User.findOne({ phone: phoneNumber });
     if (!user) {
-      // Optionally, create a user if not found
-      user = new User({ phone: phoneNumber, isVerified: true });
+      const placeholderEmail = `user_${phoneNumber.replace(
+        "+",
+        ""
+      )}@example.com`;
+      user = new User({
+        phone: phoneNumber,
+        isVerified: true,
+        email: placeholderEmail,
+        otpVerification: { verified: true, lastVerifiedAt: new Date() },
+      });
       await user.save();
     } else {
       user.isVerified = true;
+      user.otpVerification = { verified: true, lastVerifiedAt: new Date() };
       await user.save();
     }
 
@@ -158,14 +165,16 @@ const verifyOTP = async (req, res) => {
       user: {
         _id: user._id,
         phone: user.phone,
-        isVerified: true
+        isVerified: user.isVerified,
+        otpVerification: user.otpVerification,
       },
-      token
+      token,
     });
-
   } catch (error) {
     console.error("OTP Verification Error:", error);
-    res.status(500).json({ message: "OTP verification failed", error: error.message });
+    res
+      .status(500)
+      .json({ message: "OTP verification failed", error: error.message });
   }
 };
 
@@ -176,19 +185,21 @@ const userLogin = async (req, res) => {
 
     // Validate required fields
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
     // Find the user by email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     // Compare the provided password with the hashed password
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      return res.status(401).json({ message: 'Invalid email or password' });
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     // Generate token
@@ -196,7 +207,7 @@ const userLogin = async (req, res) => {
 
     // Respond with user data
     res.status(200).json({
-      message: 'Login successful',
+      message: "Login successful",
       user: {
         _id: user._id,
         name: user.name,
@@ -204,12 +215,12 @@ const userLogin = async (req, res) => {
         phone: user.phone,
         profileImage: user.profileImage,
         addresses: user.addresses,
-        createdAt: user.createdAt
+        createdAt: user.createdAt,
       },
-      token
+      token,
     });
   } catch (error) {
-    res.status(500).json({ message: 'Login failed', error: error.message });
+    res.status(500).json({ message: "Login failed", error: error.message });
   }
 };
 
@@ -220,31 +231,33 @@ const getUserById = async (req, res) => {
 
     // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ message: 'Invalid user ID format' });
+      return res.status(400).json({ message: "Invalid user ID format" });
     }
 
-    const user = await User.findById(id).select('-password');
+    const user = await User.findById(id).select("-password");
     if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+      return res.status(404).json({ message: "User not found" });
     }
     res.status(200).json(user);
   } catch (error) {
-    console.error('Error fetching user:', error);
-    res.status(500).json({ message: 'Failed to fetch user' });
+    console.error("Error fetching user:", error);
+    res.status(500).json({ message: "Failed to fetch user" });
   }
 };
 
 // Get all users (Protected)
 const getAllUsers = async (req, res) => {
   try {
-    const users = await User.find().select('-password');
+    const users = await User.find().select("-password");
     if (!users || users.length === 0) {
-      return res.status(404).json({ message: 'No users found' });
+      return res.status(404).json({ message: "No users found" });
     }
     res.status(200).json(users);
   } catch (error) {
-    console.error('Error fetching users:', error);
-    res.status(500).json({ message: 'Failed to fetch users', error: error.message });
+    console.error("Error fetching users:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch users", error: error.message });
   }
 };
 
@@ -254,7 +267,5 @@ module.exports = {
   getAllUsers,
   getUserById,
   sendOTP,
-  verifyOTP
-  
-
+  verifyOTP,
 };

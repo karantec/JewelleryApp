@@ -78,10 +78,7 @@ const userSchema = new mongoose.Schema({
   name: {
     type: String,
     trim: true,
-    required: function() {
-      // Optional for initial phone verification
-      return this.email !== undefined;
-    },
+    
     minlength: [2, "Name must be at least 2 characters long"],
     maxlength: [50, "Name cannot exceed 50 characters"]
   },
@@ -89,7 +86,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true,
     lowercase: true,
-    unique: true,
+    
     
     sparse: true,
     default: undefined
@@ -97,10 +94,7 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: function() {
-      // Only require password for email signup
-      return this.email !== undefined;
-    },
+   
     minlength: [6, "Password must be at least 6 characters long"]
   },
   phone: {
