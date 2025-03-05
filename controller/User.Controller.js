@@ -2,14 +2,31 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const User = require('../models/User.model');
-const admin = require('../utils/firebaseConfig');
+
 // Use the JWT secret from .env (fallback to a default for development)
 const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
 
 // Generate JWT Token
 const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: '2h' });
 };
+
+
+const twilio = require('twilio');
+
+// Twilio credentials (hardcoded for testing)
+const TWILIO_ACCOUNT_SID = 'ACb0b9cacfaf93ca18d7b94824fc1e4c77';
+const TWILIO_AUTH_TOKEN = 'cca3dfe91bbeb0f476ecf6389d008074';
+const TWILIO_PHONE_NUMBER = '+916297358939';
+const TWILIO_VERIFY_SERVICE_SID = 'VA997e5ada057f9aedea00fc86f9985a6d';
+
+// Initialize Twilio client
+const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+
+// Send OTP function (uses hardcoded credentials)
+
+
+
 
 // User Signup
 const userSignup = async (req, res) => {
@@ -66,6 +83,7 @@ const userSignup = async (req, res) => {
   }
 };
 
+
 const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -74,12 +92,30 @@ const sendOTP = async (req, res) => {
       return res.status(400).json({ message: 'Phone number is required' });
     }
 
-    res.status(200).json({ message: 'OTP request sent successfully', phone });
+    const phoneNumber = phone.startsWith('+') ? phone : `+91${phone}`;
+
+    if (!TWILIO_VERIFY_SERVICE_SID) {
+      return res.status(500).json({ message: 'Twilio Verify Service SID is not configured' });
+    }
+
+    const verification = await twilioClient.verify.v2
+      .services(TWILIO_VERIFY_SERVICE_SID)
+      .verifications.create({
+        to: phoneNumber,
+        channel: 'sms',
+      });
+
+    res.status(200).json({
+      message: 'OTP sent successfully',
+      verificationSid: verification.sid,
+      status: verification.status,
+    });
+
   } catch (error) {
+    console.error('OTP Send Error:', error);
     res.status(500).json({ message: 'Failed to send OTP', error: error.message });
   }
 };
-
 const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -88,27 +124,51 @@ const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: 'Phone and OTP are required' });
     }
 
-    // Verify OTP with Firebase
-    const decodedToken = await admin.auth().verifyIdToken(otp);
-    if (!decodedToken) {
-      return res.status(401).json({ message: 'Invalid or expired OTP' });
+    // Ensure phone number is in E.164 format
+    const phoneNumber = phone.startsWith('+') ? phone : `+91${phone}`;
+
+    // Verify OTP using Twilio
+    const verificationCheck = await twilioClient.verify.v2
+      .services(TWILIO_VERIFY_SERVICE_SID)
+      .verificationChecks.create({
+        to: phoneNumber,
+        code: otp
+      });
+
+    if (verificationCheck.status !== 'approved') {
+      return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Find user by phone or create new user
-    let user = await User.findOne({ phone });
+    // Find user in database by phone
+    let user = await User.findOne({ phone: phoneNumber });
     if (!user) {
-      user = new User({ phone });
+      // Optionally, create a user if not found
+      user = new User({ phone: phoneNumber, isVerified: true });
+      await user.save();
+    } else {
+      user.isVerified = true;
       await user.save();
     }
 
-    // Generate JWT Token
-    const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '1h' });
+    // Generate a fresh JWT after successful OTP verification
+    const token = generateToken(user._id);
 
-    res.status(200).json({ message: 'Login successful', user, token });
+    res.status(200).json({
+      message: "OTP verified successfully",
+      user: {
+        _id: user._id,
+        phone: user.phone,
+        isVerified: true
+      },
+      token
+    });
+
   } catch (error) {
-    res.status(500).json({ message: 'OTP verification failed', error: error.message });
+    console.error("OTP Verification Error:", error);
+    res.status(500).json({ message: "OTP verification failed", error: error.message });
   }
 };
+
 // User Login with JWT
 const userLogin = async (req, res) => {
   try {
@@ -195,5 +255,6 @@ module.exports = {
   getUserById,
   sendOTP,
   verifyOTP
+  
 
 };
