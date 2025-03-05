@@ -1,3 +1,4 @@
+require('dotenv').config();
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
@@ -13,16 +14,14 @@ const generateToken = (userId) => {
 
 const twilio = require("twilio");
 
-// Twilio credentials (hardcoded for testing)
-const TWILIO_ACCOUNT_SID = "ACb0b9cacfaf93ca18d7b94824fc1e4c77";
-const TWILIO_AUTH_TOKEN = "cca3dfe91bbeb0f476ecf6389d008074";
-const TWILIO_PHONE_NUMBER = "+916297358939";
-const TWILIO_VERIFY_SERVICE_SID = "VA997e5ada057f9aedea00fc86f9985a6d";
+// Load Twilio credentials from environment variables
+const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
+const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
 
 // Initialize Twilio client
 const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
-
-// Send OTP function (uses hardcoded credentials)
 
 // User Signup
 const userSignup = async (req, res) => {
@@ -50,7 +49,7 @@ const userSignup = async (req, res) => {
       password: hashedPassword,
       phone,
       profileImage,
-      addresses: addresses || [], // Default to empty array if no addresses are provided
+      addresses: addresses || [],
     });
 
     // Save the user to the database
@@ -114,6 +113,7 @@ const sendOTP = async (req, res) => {
       .json({ message: "Failed to send OTP", error: error.message });
   }
 };
+
 const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -140,10 +140,7 @@ const verifyOTP = async (req, res) => {
     // Find user in database by phone
     let user = await User.findOne({ phone: phoneNumber });
     if (!user) {
-      const placeholderEmail = `user_${phoneNumber.replace(
-        "+",
-        ""
-      )}@example.com`;
+      const placeholderEmail = `user_${phoneNumber.replace("+", "")}@example.com`;
       user = new User({
         phone: phoneNumber,
         isVerified: true,
