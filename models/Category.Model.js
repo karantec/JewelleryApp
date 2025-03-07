@@ -1,15 +1,11 @@
 const mongoose = require('mongoose');
 
-const CategorySchema = new mongoose.Schema({
-    categoryname : { type: String, required: true },
-    Image: { type: String, required: true },
-    // Add this field to store the image URL or path
+const JewellerysCategorySchema = new mongoose.Schema({
+    title: { type: String, unique: true, required: true }, // Change name to category
+    image: { type: String, required: true },
 });
 
 // Middleware to update the updatedAt field before saving
-CategorySchema.pre('save', function(next) {
-    this.updatedAt = Date.now();
-    next();
-});
+const JewelleryCategory = mongoose.model("Category", JewellerysCategorySchema);
 
-module.exports = mongoose.model('Category', CategorySchema);
+module.exports = JewelleryCategory;

@@ -10,8 +10,8 @@ const cpUpload = upload.fields([
 // **Routes**
 router.post('/createCategory', cpUpload,createCategory);
 router.get('/getAllCategory', getAllCatgory)
-router.get('/category/:id', getCategoryById);
-router.put('/updateCategory/:id',cpUpload, updateCategory);
-router.delete('/deleteCategory/:id', deleteCategory);
+// router.get('/category/:id', getCategoryById);
+// router.put('/updateCategory/:id',cpUpload, updateCategory);
+// router.delete('/deleteCategory/:id', deleteCategory);
 
 module.exports = router;

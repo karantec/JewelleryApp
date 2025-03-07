@@ -77,6 +77,36 @@ const userSignup = async (req, res) => {
     res.status(500).json({ message: "Signup failed", error: error.message });
   }
 };
+const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Hardcoded admin credentials
+    const ADMIN_EMAIL = "sla@admin";
+    const ADMIN_PASSWORD = "sla@admin";
+
+    // Check if the provided credentials match
+    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+      return res.status(401).json({ message: "Invalid admin credentials" });
+    }
+
+    // Generate JWT token for admin
+    const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "2h" });
+
+    res.status(200).json({
+      message: "Admin login successful",
+      admin: { email, role: "admin" },
+      token,
+    });
+  } catch (error) {
+    console.error("Admin Login Error:", error);
+    res.status(500).json({ message: "Admin login failed", error: error.message });
+  }
+};
+
+
+
+
 
 const sendOTP = async (req, res) => {
   try {
@@ -258,11 +288,47 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+
+const changePassword = async (req, res) => {
+  try {
+    const { userId } = req.user; // Assuming user ID is extracted from authenticated token
+    const { oldPassword, newPassword } = req.body;
+
+    // Validate input
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ message: "Old and new passwords are required" });
+    }
+
+    // Find user in database
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Compare old password with stored hash
+    const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Old password is incorrect" });
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    user.password = hashedPassword;
+    await user.save();
+
+    res.status(200).json({ message: "Password changed successfully" });
+  } catch (error) {
+    console.error("Change Password Error:", error);
+    res.status(500).json({ message: "Failed to change password", error: error.message });
+  }
+};
 module.exports = {
   userSignup,
+  adminLogin,
   userLogin,
   getAllUsers,
   getUserById,
   sendOTP,
   verifyOTP,
+  changePassword
 };

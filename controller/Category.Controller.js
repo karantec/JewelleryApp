@@ -1,29 +1,27 @@
-const { cloudinary } = require("../config/cloudinary");
-const Category = require("../models/Category.Model");
+// const { cloudinary } = require("../config/cloudinary");
+const JewelleryCategory = require("../models/Category.Model");
 
 // **Create a New Blog Post with Image Upload**
 const createCategory = async (req, res) => {
   try {
-    const { categoryname, Image} = req.body;
+    const { title, image } = req.body;
 
     // Create a new blog post with the provided data
-    const newCategory = new Category({
-        categoryname,
-      Image
-     
+    const newJewellery = new JewelleryCategory({
+      title,
+      image,
     });
 
-    await newCategory.save();
-    res.status(201).json({ message: "Category  created successfully", Category: newCategory });
+    await newJewellery.save();
+    res.status(201).json({ message: "Blog post created successfully", blog: newJewellery });
   } catch (error) {
-    console.error("Error in Category:", error);
+    console.error("Error in createBlog:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
-
 const getAllCatgory = async (req, res) => {
   try {
-    const Categorys = await Category.find();
+    const Categorys = await JewelleryCategory.find();
 
     if (!Categorys.length) {
       return res.status(404).json({ message: "No Category posts found" });
@@ -36,68 +34,69 @@ const getAllCatgory = async (req, res) => {
   }
 };
 
-// **Get Single Blog Post by ID**
-const getCategoryById = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const Categorys = await Category.findById(id);
+// // **Get Single Blog Post by ID**
+// const getCategoryById = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const Categorys = await Category.findById(id);
 
-    if (!Categorys) {
-      return res.status(404).json({ message: "Blog post not found" });
-    }
+//     if (!Categorys) {
+//       return res.status(404).json({ message: "Blog post not found" });
+//     }
 
-    res.status(200).json(Categorys);
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+//     res.status(200).json(Categorys);
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 
-// **Update Blog Post with Image Upload**
-const updateCategory = async (req, res) => {
-    try {
-      const { id } = req.params;
-      const { categoryname, Image } = req.body;
-      let imageUrl = Image; // Keep the existing Image if not updated
+// // **Update Blog Post with Image Upload**
+// const updateCategory = async (req, res) => {
+//     try {
+//       const { id } = req.params;
+//       const { categoryname, Image } = req.body;
+//       let imageUrl = Image; // Keep the existing Image if not updated
   
-      if (Image) {
-        const result = await cloudinary.uploader.upload(Image, { folder: "Category" });
-        imageUrl = result.secure_url;
-      }
+//       if (Image) {
+//         const result = await cloudinary.uploader.upload(Image, { folder: "Category" });
+//         imageUrl = result.secure_url;
+//       }
   
-      const updatedCategory = await Category.findByIdAndUpdate(
-        id,
-        { categoryname, Image: imageUrl }, // Ensure Image is updated
-        { new: true }
-      );
+//       const updatedCategory = await Category.findByIdAndUpdate(
+//         id,
+//         { categoryname, Image: imageUrl }, // Ensure Image is updated
+//         { new: true }
+//       );
   
-      if (!updatedCategory) {
-        return res.status(404).json({ message: "Category post not found" });
-      }
+//       if (!updatedCategory) {
+//         return res.status(404).json({ message: "Category post not found" });
+//       }
   
-      res.status(200).json({ message: "Category post updated successfully", updatedCategory });
-    } catch (error) {
-      console.error("Error:", error);
-      res.status(500).json({ message: "Server error", error: error.message });
-    }
-  };
+//       res.status(200).json({ message: "Category post updated successfully", updatedCategory });
+//     } catch (error) {
+//       console.error("Error:", error);
+//       res.status(500).json({ message: "Server error", error: error.message });
+//     }
+//   };
   
 
-// **Delete a Blog Post**
-const deleteCategory = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const deletedCategory = await Category.findByIdAndDelete(id);
+// // **Delete a Blog Post**
+// const deleteCategory = async (req, res) => {
+//   try {
+//     const { id } = req.params;
+//     const deletedCategory = await Category.findByIdAndDelete(id);
 
-    if (!deletedCategory) {
-      return res.status(404).json({ message: "Category post not found" });
-    }
+//     if (!deletedCategory) {
+//       return res.status(404).json({ message: "Catag post not found" });
+//     }
 
-    res.status(200).json({ message: "Category post deleted successfully" });
-  } catch (error) {
-    console.error("Error:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
-  }
-};
+//     res.status(200).json({ message: "Category post deleted successfully" });
+//   } catch (error) {
+//     console.error("Error:", error);
+//     res.status(500).json({ message: "Server error", error: error.message });
+//   }
+// };
 
-module.exports = { createCategory, getAllCatgory, getCategoryById, updateCategory, deleteCategory};
+module.exports = { createCategory, getAllCatgory
+}
