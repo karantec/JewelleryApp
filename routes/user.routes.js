@@ -16,11 +16,11 @@ router.post("/verify-otp", verifyOTP);
 router.post('/signup', userSignup);
 router.post('/adminLogin',adminLogin);
 
-// Login Route
+
 router.post('/login', userLogin);
 
 // Protected Routes (Require Authentication)
-router.get('/users', verifyToken, getAllUsers);
+router.get('/users',getAllUsers);
 router.get('/:id', verifyToken, getUserById);
 
 //change password

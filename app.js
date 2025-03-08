@@ -22,7 +22,8 @@ app.use(morgan('dev'));
 app.get('/', async (req, res, next) => {
   res.send({ message: 'Awesome it works 🐻' });
 });
-app.use(cors());
+
+app.use(cors({ origin: "http://localhost:3000" }));
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
 app.use('/gold',GoldRoutes);

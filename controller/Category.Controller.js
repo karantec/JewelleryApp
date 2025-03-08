@@ -4,21 +4,19 @@ const JewelleryCategory = require("../models/Category.Model");
 // **Create a New Blog Post with Image Upload**
 const createCategory = async (req, res) => {
   try {
-    const { title, image } = req.body;
-
-    // Create a new blog post with the provided data
-    const newJewellery = new JewelleryCategory({
-      title,
-      image,
-    });
-
+    const { title } = req.body;  // Extract title correctly
+    const image = req.files?.images ? req.files.images[0].path : null;  // Extract image path
+    
+    const newJewellery = new JewelleryCategory({ title, image });
     await newJewellery.save();
-    res.status(201).json({ message: "Blog post created successfully", blog: newJewellery });
+
+    res.status(201).json({ message: "Category created successfully", category: newJewellery });
   } catch (error) {
-    console.error("Error in createBlog:", error);
+    console.error("Error in createCategory:", error);
     res.status(500).json({ message: "Server error", error: error.message });
   }
 };
+
 const getAllCatgory = async (req, res) => {
   try {
     const Categorys = await JewelleryCategory.find();

@@ -2,10 +2,10 @@ const About = require('../models/About.model');
 
 const createAbout = async (req, res) => {
     try {
-        const { icon, about, title, buttonText, description1, featuredImage, history, category, establishedYear, founderImage } = req.body;
+        const {  about, title, buttonText, description1, featuredImage, history, category, establishedYear, founderImage } = req.body;
 
         const newAbout = new About({
-            icon,
+           
             about,
             title,
             buttonText,
