@@ -19,7 +19,7 @@ router.post('/create', verifyToken, createOrder);
 router.post('/verify-payment', verifyToken, confirmPayment);
 
 // Get all orders (Protected: Admin access only)
-router.get('/', verifyToken, getAllOrders);
+router.get('/', getAllOrders);
 
 // Get a specific order by ID (Protected: User or Admin)
 router.get('/:id', verifyToken, getOrderById);
