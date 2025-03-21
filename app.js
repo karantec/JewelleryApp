@@ -23,7 +23,7 @@ app.get('/', async (req, res, next) => {
   res.send({ message: 'Awesome it works 🐻' });
 });
 
-app.use(cors({ origin: "http://localhost:3000" }));
+app.use(cors({ origin: "https://jewellery-app-dashboard.vercel.app" }));
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
 app.use('/gold',GoldRoutes);
