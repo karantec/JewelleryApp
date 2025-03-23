@@ -15,7 +15,7 @@ require('dotenv').config();
 
 const app = express();
 app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
 // Example route
@@ -23,7 +23,11 @@ app.get('/', async (req, res, next) => {
   res.send({ message: 'Awesome it works 🐻' });
 });
 
-app.use(cors({ origin: "https://jewellery-app-dashboard.vercel.app" }));
+app.use(cors({
+  origin: 'http://localhost:3000', // Allow requests only from this origin
+  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
+  credentials: true // Allow cookies if required
+}));
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
 app.use('/gold',GoldRoutes);

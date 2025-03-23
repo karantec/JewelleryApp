@@ -1,23 +1,23 @@
 const mongoose = require('mongoose');
 
 const goldProductSchema = new mongoose.Schema({
-    name: { type: String, required: true, trim: true },
-    category: { 
-        type: String, 
-        enum: ['Bracelets', 'Earrings', 'Necklaces', 'Shop Earrings', 'Wedding & Bridal'], 
-        required: true 
+    name: { type: String, required: true},
+    category: { type:String, required: true },
+    netWeight: { 
+        type: Number, 
+        required: [true, "Net weight is required"],
+        min: [0, "Net weight cannot be negative"] 
     },
-    price: { type: Number, required: true },
-    discountedPrice: { type: Number, default: null }, // New field for discounted price
-    weight: { type: Number, required: true },
-    karat: { type: String, enum: ['14K', '18K', '22K', '24K'], required: true },
-    description: { type: String, trim: true },
-    coverImage: { type: String, trim: true }, // Cover image URL
-    images: [{ type: String, trim: true }],
-    isAvailable: { type: Boolean, default: true }, // Cloudinary URLs stored here
-    createdAt: { type: Date, default: Date.now }
-
-});
+    grossWeight: { 
+        type: Number, 
+        required: [true, "Gross weight is required"],
+        min: [0, "Gross weight cannot be negative"] 
+    },// Improved naming
+    description: { type: String,  },
+    coverImage: { type: String,  }, // Cover image URL
+    images: [{ type: String,  }], // Cloudinary URLs stored here
+}, { timestamps: true }); // Adds `createdAt` and `updatedAt` automatically
 
 const GoldProduct = mongoose.model('GoldProduct', goldProductSchema);
+
 module.exports = GoldProduct;
