@@ -3,16 +3,8 @@ const { cloudinary } = require('../config/cloudinary');
 
 const addGoldProduct = async (req, res) => {
     try {
-        const { name, category, netWeight, grossWeight, description } = req.body;
+        const { name, category, netWeight, grossWeight, description,carat } = req.body;
 
-        // Convert weights to numbers
-        // const parsedNetWeight = parseFloat(netWeight);
-        // const parsedGrossWeight = parseFloat(grossWeight);
-        
-        // Check for NaN or invalid values
-        // if (isNaN(parsedNetWeight) || isNaN(parsedGrossWeight)) {
-        //     return res.status(400).json({ message: "Invalid net weight or gross weight" });
-        // }
         let coverImageUrl = "";
         let imageUrls = [];
 
@@ -43,6 +35,7 @@ const addGoldProduct = async (req, res) => {
 
             grossWeight,
             description,
+            carat,
             coverImage: coverImageUrl,
             images: imageUrls,
         });
@@ -58,7 +51,7 @@ const addGoldProduct = async (req, res) => {
 
 const updateGoldProduct = async (req, res) => {
     try {
-        const { name, category, netWeight, grossWeight, description, isAvailable } = req.body;
+        const { name, category, netWeight, grossWeight, description, carat} = req.body;
 
         let imageUrls = req.body.images || [];
         let coverImageUrl = req.body.coverImage || "";
@@ -84,9 +77,10 @@ const updateGoldProduct = async (req, res) => {
                 netWeight: Number(netWeight),
                 grossWeight: Number(grossWeight),
                 description,
+                carat,
                 coverImage: coverImageUrl,
                 images: imageUrls,
-                isAvailable
+       
             },
             { new: true }
         );

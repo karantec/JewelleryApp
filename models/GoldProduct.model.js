@@ -12,7 +12,12 @@ const goldProductSchema = new mongoose.Schema({
         type: Number, 
         required: [true, "Gross weight is required"],
         min: [0, "Gross weight cannot be negative"] 
-    },// Improved naming
+    },
+    carat: {
+        type: String,
+        enum: ['24K', '22K', '18K'], // Restricts values to these options
+        required: [true, "Carat value is required"]
+    },
     description: { type: String,  },
     coverImage: { type: String,  }, // Cover image URL
     images: [{ type: String,  }], // Cloudinary URLs stored here
