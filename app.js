@@ -23,11 +23,16 @@ app.get('/', async (req, res, next) => {
   res.send({ message: 'Awesome it works 🐻' });
 });
 
-app.use(cors({
-  origin: 'https://jewellery-app-dashboard.vercel.app/', // Allow requests only from this origin
-  methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
-  credentials: true // Allow cookies if required
-}));
+app.options('*', cors()); 
+// OR Enable CORS with specific options
+app.use(
+  cors({
+    origin: 'https://jewellery-app-dashboard.vercel.app', // Allow requests only from your dashboard
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],   // Allowed HTTP methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Custom headers if required
+    credentials: true // Enable cookies or HTTP authentication headers
+  })
+);
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
 app.use('/gold',GoldRoutes);
