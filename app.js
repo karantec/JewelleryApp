@@ -24,7 +24,7 @@ app.get('/', async (req, res, next) => {
 });
 
 app.use(cors({
-  origin: 'http://localhost:3000', // Allow requests only from this origin
+  origin: 'https://jewellery-app-dashboard.vercel.app/', // Allow requests only from this origin
   methods: ['GET', 'POST', 'PUT', 'DELETE'], // Allowed HTTP methods
   credentials: true // Allow cookies if required
 }));
