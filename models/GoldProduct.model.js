@@ -14,10 +14,21 @@ const goldProductSchema = new mongoose.Schema({
         min: [0, "Gross weight cannot be negative"] 
     },
     carat: {
-        type: String,
-        enum: ['24K', '22K', '18K'], // Restricts values to these options
+        type: Number,
+        enum: ['24', '22', '18'], // Restricts values to these options
         required: [true, "Carat value is required"]
     },
+    goldPrice: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'GoldPrice'  // This should match the model name you used in mongoose.model()
+      },
+    makingcharge: { 
+        type: Number, 
+        required: [true, "Making charge is required"],
+        min: [0, "Making charge cannot be negative"] 
+    },
+
+    
     description: { type: String,  },
     coverImage: { type: String,  }, // Cover image URL
     images: [{ type: String,  }], // Cloudinary URLs stored here

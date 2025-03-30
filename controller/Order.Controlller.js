@@ -2,7 +2,7 @@ const Razorpay = require('razorpay');
 const Order = require('../models/Order.model');
 const User = require('../models/User.model');
 const GoldProduct = require('../models/GoldProduct.model');
-const GoldPriceService = require('../services/goldPriceService');
+// const GoldPriceService = require('../services/goldPriceService');
 const mongoose = require('mongoose'); 
 const crypto = require('crypto');
 // Initialize Razorpay instance with your credentials
