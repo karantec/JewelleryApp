@@ -6,7 +6,7 @@ const { addTodayPrice, updateTodayPrice, getTodayPrice } = require('../controlle
 const router = express.Router();
 
 // **Routes**
-router.post('/createPrice', addTodayPrice);
+router.post('/create-Price', addTodayPrice);
 router.get('/todayPrice', getTodayPrice);
 router.put('/gold-price/:id', updateTodayPrice);
 // router.get('/category/:id', getCategoryById);

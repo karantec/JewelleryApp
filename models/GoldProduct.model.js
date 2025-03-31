@@ -14,8 +14,8 @@ const goldProductSchema = new mongoose.Schema({
         min: [0, "Gross weight cannot be negative"] 
     },
     carat: {
-        type: Number,
-        enum: ['24', '22', '18'], // Restricts values to these options
+        type: String,
+        enum: ['24K', '22K', '18K'], // Restricts values to these options
         required: [true, "Carat value is required"]
     },
     goldPrice: {

@@ -7,6 +7,10 @@ const GoldPriceSchema = new mongoose.Schema({
         required: [true, "Today's gold price per gram is required"],
         min: [0, "Price cannot be negative"]
     },
+    createdAt: {
+        type: Date,
+        default: Date.now
+    },
 });
 
 // Middleware to update the updatedAt field before saving

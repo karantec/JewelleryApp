@@ -1,6 +1,7 @@
 const GoldProduct = require('../models/GoldProduct.model');
 const { cloudinary } = require('../config/cloudinary');
 const GoldPrice = require('../models/GoldPrice.model');
+
 const addGoldProduct = async (req, res) => {
     try {
         const { 
@@ -9,19 +10,29 @@ const addGoldProduct = async (req, res) => {
             netWeight, 
             grossWeight,
             makingcharge, 
-            description, 
-            carat 
+            description
         } = req.body;
         
         // Validate numeric inputs
         if (!netWeight || isNaN(Number(netWeight))) {
             return res.status(400).json({message: "Valid netWeight is required"});
         }
+
+        // Handle carat specifically - extract from body and validate
+        const carats = req.body.carat ? String(req.body.carat).trim() : "";
+        console.log("Carat value:", carats);
         
-        if (!carat || isNaN(Number(carat))) {
-            return res.status(400).json({message: "Valid carat value is required"});
+        if (!carats || !["24K", "22K", "18K"].includes(carats)) {
+            return res.status(400).json({ message: "Valid carat value is required" });
         }
         
+        // Convert carat string to number properly
+        let caratNum;
+        if (carats === "24K") caratNum = 24;
+        else if (carats === "22K") caratNum = 22;
+        else if (carats === "18K") caratNum = 18;
+        else caratNum = 0; // Fallback, though validation should prevent this
+
         if (!makingcharge || isNaN(Number(makingcharge))) {
             return res.status(400).json({message: "Valid makingcharge is required"});
         }
@@ -48,7 +59,7 @@ const addGoldProduct = async (req, res) => {
         // Log values for debugging
         console.log({
             netWeight: Number(netWeight),
-            carat: Number(carat),
+            caratNum,
             makingcharge: Number(makingcharge),
             TodayGoldPricePerGram
         });
@@ -76,7 +87,6 @@ const addGoldProduct = async (req, res) => {
         }
         
         // Ensure all values are properly converted to numbers
-        const caratNum = Number(carat);
         const todayPriceNum = Number(TodayGoldPricePerGram);
         const netWeightNum = Number(netWeight);
         const makingchargeNum = Number(makingcharge);
@@ -117,7 +127,7 @@ const addGoldProduct = async (req, res) => {
             grossWeight,
             makingcharge: makingchargeNum,
             description,
-            carat: caratNum,
+            carat: carats, // Store the original string format (e.g., "24K")
             goldPriceRef: latestGoldPrice._id,
             TodayGoldPricePerGram: todayPriceNum,
             coverImage: coverImageUrl,
