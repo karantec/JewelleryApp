@@ -10,8 +10,9 @@ const OrderRoutes=require('./routes/Order.routes');
 const addressRoutes = require('./routes/address.routes'); 
 const CategoryRoutes=require('./routes/Category.routes');
 const blogRoutes=require('./routes/blog.routes');
-const PriceRoute=require('./routes/GoldPrice.routes');
+
 const AboutRoutes=require('./routes/About.routes');
+const GoldPriceRoutes=require('./routes/Price.routes');
 require('dotenv').config();
 
 const app = express();
@@ -43,7 +44,7 @@ app.use('/address', addressRoutes);
 app.use('/blog',blogRoutes)
 app.use('/category', CategoryRoutes);
 app.use('/about',AboutRoutes)
-app.use('/gold-price', PriceRoute);
+app.use('/today-price',GoldPriceRoutes)
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
   next(createError.NotFound());
