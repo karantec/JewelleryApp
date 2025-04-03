@@ -58,42 +58,46 @@ goldProductSchema.pre('save', async function(next) {
 });
 
 // Method to calculate the current price based on latest pricing data
-goldProductSchema.methods.getCurrentPrice = async function() {
-    try {
-        // Get the latest pricing data for this carat
-        const latestPricing = await Pricing.findOne({ Carat: this.carat }).sort({ createdAt: -1 });
-        if (latestPricing) {
-            // Gold price calculation
-            const originalGoldPrice = this.netWeight * this.pricePerGram;
-            const currentGoldPrice = this.netWeight * latestPricing.TodayPricePerGram;
-            
-            // Making charge calculation (as percentage of gold price)
-            const originalMakingChargeAmount = originalGoldPrice * (this.makingCharge / 100);
-            const currentMakingChargeAmount = currentGoldPrice * (this.makingCharge / 100);
-            
-            // Total price calculation
-            const originalTotalPrice = originalGoldPrice + originalMakingChargeAmount;
-            const currentTotalPrice = currentGoldPrice + currentMakingChargeAmount;
-            
-            return {
-                originalPricePerGram: this.pricePerGram,
-                currentPricePerGram: latestPricing.TodayPricePerGram,
-                originalGoldPrice,
-                currentGoldPrice,
-                makingChargePercentage: this.makingCharge,
-                originalMakingChargeAmount,
-                currentMakingChargeAmount,
-                originalTotalPrice,
-                currentTotalPrice
-            };
-        }
-        return null;
-    } catch (error) {
-        console.error('Error calculating current price:', error);
-        return null;
+goldProductSchema.methods.getCurrentPrice = async function () {
+    const latestPrice = await Pricing.findOne({ Carat: this.carat }).sort({ createdAt: -1 });
+    
+    if (!latestPrice) {
+        return {
+            message: "No price data found",
+            debugInfo: { error: "Price data not found" }
+        };
     }
+    
+    // Use TodayPricePerGram instead of pricePerGram
+    const pricePerGram = Number(latestPrice.TodayPricePerGram);
+    
+    if (isNaN(pricePerGram)) {
+        return {
+            message: "Base price is NaN",
+            debugInfo: { error: "Invalid price data", latestPrice }
+        };
+    }
+    
+    const netWeight = Number(this.netWeight) || 0;
+    const makingCharge = Number(this.makingcharge) || 0;
+    
+    if (netWeight === 0) {
+        return { message: "Net weight is missing or invalid", debugInfo: { netWeight } };
+    }
+    
+    const goldPrice = netWeight * pricePerGram;
+    const makingChargeAmount = (goldPrice * makingCharge) / 100;
+    const totalPrice = goldPrice + makingChargeAmount;
+    
+    return {
+        originalGoldPrice: goldPrice,
+        currentGoldPrice: goldPrice,
+        originalMakingChargeAmount: makingChargeAmount,
+        currentMakingChargeAmount: makingChargeAmount,
+        originalTotalPrice: totalPrice,
+        currentTotalPrice: totalPrice
+    };
 };
-
 const GoldProduct = mongoose.model('GoldProduct', goldProductSchema);
 
 module.exports = GoldProduct;

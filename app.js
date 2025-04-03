@@ -10,7 +10,7 @@ const OrderRoutes=require('./routes/Order.routes');
 const addressRoutes = require('./routes/address.routes'); 
 const CategoryRoutes=require('./routes/Category.routes');
 const blogRoutes=require('./routes/blog.routes');
-
+const CartRoutes=require('./routes/Cart.routes');
 const AboutRoutes=require('./routes/About.routes');
 const GoldPriceRoutes=require('./routes/Price.routes');
 require('dotenv').config();
@@ -29,7 +29,7 @@ app.options('*', cors());
 // OR Enable CORS with specific options
 app.use(
   cors({
-    origin: ['https://jewellery-app-dashboard.vercel.app', 'http://localhost:3000'], // Allow requests only from your dashboard
+    origin: ['https://jewellery-app-dashboard.vercel.app', 'http://localhost:3000','http://localhost:3001/'], // Allow requests only from your dashboard
     methods: ['GET', 'POST', 'PUT', 'DELETE'],   // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Custom headers if required
     credentials: true // Enable cookies or HTTP authentication headers
@@ -45,6 +45,7 @@ app.use('/blog',blogRoutes)
 app.use('/category', CategoryRoutes);
 app.use('/about',AboutRoutes)
 app.use('/today-price',GoldPriceRoutes)
+app.use('/cart',CartRoutes)
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
   next(createError.NotFound());
