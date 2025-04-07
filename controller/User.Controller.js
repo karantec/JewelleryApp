@@ -108,6 +108,7 @@ const adminLogin = async (req, res) => {
 
 
 
+
 const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -117,6 +118,8 @@ const sendOTP = async (req, res) => {
     }
 
     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
+
+    const { TWILIO_VERIFY_SERVICE_SID } = process.env;
 
     if (!TWILIO_VERIFY_SERVICE_SID) {
       return res
@@ -143,6 +146,7 @@ const sendOTP = async (req, res) => {
       .json({ message: "Failed to send OTP", error: error.message });
   }
 };
+
 
 const verifyOTP = async (req, res) => {
   try {
