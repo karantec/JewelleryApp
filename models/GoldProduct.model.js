@@ -16,7 +16,7 @@ const goldProductSchema = new mongoose.Schema({
     },
     carat: {
         type: String,
-        enum: ['24K', '22K', '18K'],
+        enum: ['24K', '22K', '18K','1K'],
         required: [true, "Carat value is required"]
     },
     // Add reference to the pricing model
