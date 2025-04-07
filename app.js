@@ -50,7 +50,7 @@ app.use('/cart',CartRoutes)
 app.use((req, res, next) => {
   next(createError.NotFound());
 });
-
+require('./services/priceUpdater');
 // Error handling middleware
 app.use((err, req, res, next) => {
   res.status(err.status || 500);

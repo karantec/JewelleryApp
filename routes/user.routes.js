@@ -1,5 +1,5 @@
 
-const { userSignup, userLogin, getAllUsers, getUserById, sendOTP, verifyOTP, adminLogin, changePassword } = require('../controller/User.Controller');
+const { userSignup, userLogin, getAllUsers, getUserById, sendOTP, verifyOTP, changePassword } = require('../controller/User.Controller');
 const { verifyToken } = require('../middleware/authmiddleware');
 
 const router = require('express').Router();
@@ -14,7 +14,7 @@ router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
 // Signup Route
 router.post('/signup', userSignup);
-router.post('/adminLogin',adminLogin);
+// router.post('/adminLogin',adminLogin);
 
 
 router.post('/login', userLogin);

@@ -1,7 +1,7 @@
 const Cart = require('../models/Cart.model');
 const GoldProduct = require('../models/GoldProduct.model');
 
-// Add item to cart with 3% GST
+// ✅ Add to Cart (store only productId and quantity)
 exports.addToCart = async (req, res) => {
     try {
         const { userId, productId, quantity } = req.body;
@@ -10,98 +10,96 @@ exports.addToCart = async (req, res) => {
             return res.status(400).json({ message: "User ID, Product ID, and quantity are required" });
         }
 
-        // Find the product
         const product = await GoldProduct.findById(productId);
         if (!product) {
             return res.status(404).json({ message: "Product not found" });
         }
 
-        // Fetch the latest price
-        const latestPriceData = await product.getCurrentPrice();
-
-        console.log("🔍 Latest Price Data:", latestPriceData);
-
-        if (!latestPriceData || typeof latestPriceData.currentTotalPrice !== 'number') {
-            return res.status(500).json({ 
-                message: "Invalid base price retrieved", 
-                debugInfo: latestPriceData 
-            });
-        }
-
-        // Convert to number
-        const basePrice = Number(latestPriceData.currentTotalPrice)* quantity;
-
-        if (isNaN(basePrice)) {
-            return res.status(500).json({ 
-                message: "Base price is NaN", 
-                debugInfo: latestPriceData 
-            });
-        }
-
-        // Calculate 3% GST
+        // Get current price of one unit
+        const priceDetails = await product.getCurrentPrice();
         
-        const gstAmount = basePrice * 0.03;
-        const priceAtTimeOfAdding = basePrice + gstAmount;
-
-        console.log(`✅ Base Price: ${basePrice}, GST: ${gstAmount}, Final Price: ${priceAtTimeOfAdding}`);
-
-        if (isNaN(priceAtTimeOfAdding)) {
-            return res.status(500).json({ message: "Price calculation resulted in NaN" });
+        if (!priceDetails.currentTotalPrice || isNaN(priceDetails.currentTotalPrice)) {
+            return res.status(400).json({ message: "Could not determine product price", priceDetails });
         }
 
-        // Find or create the user's cart
-        let cart = await Cart.findOne({ userId });
+        const singleUnitPrice = +priceDetails.currentTotalPrice.toFixed(2); // rounded
+        // const totalItemPrice = +(singleUnitPrice * quantity).toFixed(2); // include quantity
 
+        let cart = await Cart.findOne({ userId });
         if (!cart) {
             cart = new Cart({ userId, items: [] });
         }
 
-        // Check if the item already exists in the cart
         const existingItem = cart.items.find(item => item.productId.toString() === productId);
         if (existingItem) {
             existingItem.quantity += quantity;
+            // optionally, update price too if you want per quantity change
+            // existingItem.priceAtTimeOfAdding += totalItemPrice;
         } else {
-            cart.items.push({ productId, quantity, priceAtTimeOfAdding });
+            cart.items.push({
+                productId,
+                quantity,
+                // priceAtTimeOfAdding: totalItemPrice
+            });
         }
 
         await cart.save();
-        res.status(200).json({ message: "Item added to cart with GST", cart });
+        res.status(200).json({ message: "Item added to cart", cart });
     } catch (error) {
         console.error("🔥 Error in addToCart:", error);
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
-// Get Cart Items
+
+// ✅ Get Cart (with real-time price + GST)
 exports.getCart = async (req, res) => {
     try {
         const { userId } = req.params;
         const cart = await Cart.findOne({ userId }).populate('items.productId');
-        if (!cart) {
-            return res.status(404).json({ message: "Cart not found" });
+        if (!cart) return res.status(404).json({ message: "Cart not found" });
+
+        const updatedItems = [];
+
+        for (const item of cart.items) {
+            const product = item.productId;
+
+            // Use method to get current total price
+            const latestPrice = await product.getCurrentPrice();
+
+            const basePrice = Number(latestPrice.currentTotalPrice) * item.quantity;
+
+            updatedItems.push({
+                product,
+                quantity: item.quantity,
+                realTimeTotalPrice: basePrice.toFixed(2), // Final price without GST
+            });
         }
-        res.status(200).json(cart);
+
+        res.status(200).json({
+            cartId: cart._id,
+            userId: cart.userId,
+            items: updatedItems,
+        });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("🔥 Error in getCart:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
 
-// Remove Item from Cart
+// ✅ Remove from Cart
 exports.removeFromCart = async (req, res) => {
     try {
         const { userId, productId } = req.body;
 
-        let cart = await Cart.findOne({ userId });
-        if (!cart) {
-            return res.status(404).json({ message: "Cart not found" });
-        }
+        const cart = await Cart.findOne({ userId });
+        if (!cart) return res.status(404).json({ message: "Cart not found" });
 
         cart.items = cart.items.filter(item => item.productId.toString() !== productId);
         await cart.save();
 
         res.status(200).json({ message: "Item removed from cart", cart });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Internal server error" });
+        console.error("🔥 Error in removeFromCart:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };

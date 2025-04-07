@@ -8,8 +8,8 @@ const User = require("../models/User.model");
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
 // Generate JWT Token
-const generateToken = (userId) => {
-  return jwt.sign({ userId }, JWT_SECRET, { expiresIn: "2h" });
+const generateToken = (_id) => {
+  return jwt.sign({ _id }, JWT_SECRET, { expiresIn: "2h" });
 };
 
 const twilio = require("twilio");
@@ -77,32 +77,32 @@ const userSignup = async (req, res) => {
     res.status(500).json({ message: "Signup failed", error: error.message });
   }
 };
-const adminLogin = async (req, res) => {
-  try {
-    const { email, password } = req.body;
+// const adminLogin = async (req, res) => {
+//   try {
+//     const { email, password } = req.body;
 
-    // Hardcoded admin credentials
-    const ADMIN_EMAIL = "sla@admin";
-    const ADMIN_PASSWORD = "sla@admin";
+//     // Hardcoded admin credentials
+//     const ADMIN_EMAIL = "sla@admin";
+//     const ADMIN_PASSWORD = "sla@admin";
 
-    // Check if the provided credentials match
-    if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-      return res.status(401).json({ message: "Invalid admin credentials" });
-    }
+//     // Check if the provided credentials match
+//     if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
+//       return res.status(401).json({ message: "Invalid admin credentials" });
+//     }
 
-    // Generate JWT token for admin
-    const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "2h" });
+//     // Generate JWT token for admin
+//     const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "2h" });
 
-    res.status(200).json({
-      message: "Admin login successful",
-      admin: { email, role: "admin" },
-      token,
-    });
-  } catch (error) {
-    console.error("Admin Login Error:", error);
-    res.status(500).json({ message: "Admin login failed", error: error.message });
-  }
-};
+//     res.status(200).json({
+//       message: "Admin login successful",
+//       admin: { email, role: "admin" },
+//       token,
+//     });
+//   } catch (error) {
+//     console.error("Admin Login Error:", error);
+//     res.status(500).json({ message: "Admin login failed", error: error.message });
+//   }
+// };
 
 
 
@@ -328,7 +328,6 @@ const changePassword = async (req, res) => {
 };
 module.exports = {
   userSignup,
-  adminLogin,
   userLogin,
   getAllUsers,
   getUserById,

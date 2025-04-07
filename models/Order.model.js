@@ -1,61 +1,51 @@
 const mongoose = require('mongoose');
 
 const orderSchema = new mongoose.Schema({
-  userId: {
+  cartId: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
+    ref: 'Cart',
+    required: true
+  },
+  totalAmount: {
+    type: Number,
     required: true
   },
 
-  products: [
-    {
-      productId: {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'GoldProduct',
-        required: true
-      },
-      quantity: {
-        type: Number,
-        required: true
-      },
-      priceAtTimeOfAdding: {
-        type: Number,
-        required: true
-      }
-    }
-  ],
-
   shippingAddress: {
-    fullName: String,
-    addressLine1: String,
-    addressLine2: String,
-    city: String,
-    state: String,
-    postalCode: String,
-    country: String,
-    phone: String
+    fullName: { type: String, required: true },
+    addressLine1: { type: String, required: true },
+    addressLine2: { type: String },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
+    postalCode: { type: String, required: true },
+    country: { type: String, required: true },
+    phone: { type: String, required: true }
   },
 
   paymentMethod: {
     type: String,
     enum: ['COD', 'ONLINE'],
+    required: true,
     default: 'COD'
   },
 
-  status: {
+  paymentStatus: {
     type: String,
-    enum: ['Created', 'ORDER PLACED', 'Paid', 'Shipped', 'Delivered', 'Cancelled', 'Deleted'],
+    enum: ['Pending', 'Paid', 'Failed', 'Refunded'],
+    default: 'Pending'
+  },
+
+  orderStatus: {
+    type: String,
+    enum: ['Created', 'ORDER PLACED', 'Shipped', 'Delivered', 'Cancelled', 'Deleted'],
     default: 'Created'
   },
 
-  razorpayOrderId: String,
-
-  razorpayOrderDetails: Object,
-
-  paymentDetails: {
-    paymentId: String,
-    orderId: String,
-    signature: String
+  razorpay: {
+    orderId: { type: String },
+    paymentId: { type: String },
+    signature: { type: String },
+    orderDetails: { type: Object }
   },
 
   orderDate: {
@@ -63,9 +53,11 @@ const orderSchema = new mongoose.Schema({
     default: Date.now
   },
 
-  deletedAt: Date
-}, {
-  timestamps: true
-});
+  deletedAt: {
+    type: Date,
+    default: null
+  }
+
+}, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);
