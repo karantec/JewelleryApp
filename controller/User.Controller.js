@@ -156,10 +156,13 @@ const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: "Phone and OTP are required" });
     }
 
-    // Ensure phone number is in E.164 format
     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
+    const { TWILIO_VERIFY_SERVICE_SID } = process.env;
 
-    // Verify OTP using Twilio
+    if (!TWILIO_VERIFY_SERVICE_SID) {
+      return res.status(500).json({ message: "Twilio Verify Service SID not found in environment" });
+    }
+
     const verificationCheck = await twilioClient.verify.v2
       .services(TWILIO_VERIFY_SERVICE_SID)
       .verificationChecks.create({
@@ -171,7 +174,6 @@ const verifyOTP = async (req, res) => {
       return res.status(400).json({ message: "Invalid OTP" });
     }
 
-    // Find user in database by phone
     let user = await User.findOne({ phone: phoneNumber });
     if (!user) {
       const placeholderEmail = `user_${phoneNumber.replace("+", "")}@example.com`;
@@ -188,7 +190,6 @@ const verifyOTP = async (req, res) => {
       await user.save();
     }
 
-    // Generate a fresh JWT after successful OTP verification
     const token = generateToken(user._id);
 
     res.status(200).json({
@@ -203,11 +204,10 @@ const verifyOTP = async (req, res) => {
     });
   } catch (error) {
     console.error("OTP Verification Error:", error);
-    res
-      .status(500)
-      .json({ message: "OTP verification failed", error: error.message });
+    res.status(500).json({ message: "OTP verification failed", error: error.message });
   }
 };
+
 
 // User Login with JWT
 const userLogin = async (req, res) => {
