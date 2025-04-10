@@ -30,12 +30,18 @@ app.options('*', cors());
 // OR Enable CORS with specific options
 app.use(
   cors({
-    origin: ['https://jewellery-app-dashboard.vercel.app', 'http://localhost:3000','http://localhost:3001/','https://ecommerce-flax-chi.vercel.app/'], // Allow requests only from your dashboard
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],   // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Custom headers if required
-    credentials: true // Enable cookies or HTTP authentication headers
+    origin: [
+      'https://jewellery-app-dashboard.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://ecommerce-flax-chi.vercel.app' // <-- removed trailing slash here
+    ],
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
   })
 );
+
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
 app.use('/gold',GoldRoutes);
