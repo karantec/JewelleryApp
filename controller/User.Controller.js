@@ -3,7 +3,7 @@ const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User.model");
-
+const Admin=require("../models/Admin.model")
 // Use the JWT secret from .env (fallback to a default for development)
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
@@ -11,7 +11,11 @@ const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 const generateToken = (_id) => {
   return jwt.sign({ _id }, JWT_SECRET, { expiresIn: "2h" });
 };
-
+const generateAdminToken = (adminId) => {
+  return jwt.sign({ id: adminId }, process.env.JWT_SECRET, {
+    expiresIn: '30d',
+  });
+};
 const twilio = require("twilio");
 
 // Load Twilio credentials from environment variables
@@ -77,32 +81,7 @@ const userSignup = async (req, res) => {
     res.status(500).json({ message: "Signup failed", error: error.message });
   }
 };
-// const adminLogin = async (req, res) => {
-//   try {
-//     const { email, password } = req.body;
 
-//     // Hardcoded admin credentials
-//     const ADMIN_EMAIL = "sla@admin";
-//     const ADMIN_PASSWORD = "sla@admin";
-
-//     // Check if the provided credentials match
-//     if (email !== ADMIN_EMAIL || password !== ADMIN_PASSWORD) {
-//       return res.status(401).json({ message: "Invalid admin credentials" });
-//     }
-
-//     // Generate JWT token for admin
-//     const token = jwt.sign({ email, role: "admin" }, JWT_SECRET, { expiresIn: "2h" });
-
-//     res.status(200).json({
-//       message: "Admin login successful",
-//       admin: { email, role: "admin" },
-//       token,
-//     });
-//   } catch (error) {
-//     console.error("Admin Login Error:", error);
-//     res.status(500).json({ message: "Admin login failed", error: error.message });
-//   }
-// };
 
 
 
@@ -205,6 +184,83 @@ const verifyOTP = async (req, res) => {
   } catch (error) {
     console.error("OTP Verification Error:", error);
     res.status(500).json({ message: "OTP verification failed", error: error.message });
+  }
+};
+const adminSignup = async (req, res) => {
+  try {
+    const {  email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const existingAdmin = await Admin.findOne({ email });
+    if (existingAdmin) {
+      return res.status(400).json({ message: "Admin already exists" });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const newAdmin = new Admin({
+     
+      email,
+      password: hashedPassword,
+    });
+
+    await newAdmin.save();
+
+    const token = generateAdminToken(newAdmin._id);
+
+    res.status(201).json({
+      message: "Admin registered successfully",
+      admin: {
+        _id: newAdmin._id,
+        
+        email: newAdmin.email,
+        createdAt: newAdmin.createdAt,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error("Admin Signup Error:", error);
+    res.status(500).json({ message: "Signup failed", error: error.message });
+  }
+};
+
+// Admin Login
+const adminLogin = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({ message: "Email and password are required" });
+    }
+
+    const admin = await Admin.findOne({ email });
+    if (!admin) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, admin.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+
+    const token = generateAdminToken(admin._id);
+
+    res.status(200).json({
+      message: "Admin login successful",
+      admin: {
+        _id: admin._id,
+        
+        email: admin.email,
+        createdAt: admin.createdAt,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error("Admin Login Error:", error);
+    res.status(500).json({ message: "Login failed", error: error.message });
   }
 };
 
@@ -333,5 +389,7 @@ module.exports = {
   getUserById,
   sendOTP,
   verifyOTP,
-  changePassword
+  changePassword,
+  adminSignup,
+  adminLogin,
 };

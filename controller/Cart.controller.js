@@ -56,22 +56,32 @@ exports.getCart = async (req, res) => {
     try {
         const { userId } = req.params;
         const cart = await Cart.findOne({ userId }).populate('items.productId');
-        if (!cart) return res.status(404).json({ message: "Cart not found" });
+
+        if (!cart) {
+            return res.status(404).json({ message: "Cart not found" });
+        }
 
         const updatedItems = [];
 
         for (const item of cart.items) {
             const product = item.productId;
 
-            // Use method to get current total price
+            // Get latest price (assumes method exists on product model)
             const latestPrice = await product.getCurrentPrice();
 
             const basePrice = Number(latestPrice.currentTotalPrice) * item.quantity;
 
+            // GST (assume 18% GST for example)
+            const gstRate = 0.18;
+            const gstAmount = basePrice * gstRate;
+            const totalWithGST = basePrice + gstAmount;
+
             updatedItems.push({
                 product,
                 quantity: item.quantity,
-                realTimeTotalPrice: basePrice.toFixed(2), // Final price without GST
+                realTimeTotalPrice: basePrice.toFixed(2), // Without GST
+                gstAmount: gstAmount.toFixed(2),
+                totalWithGST: totalWithGST.toFixed(2),
             });
         }
 
@@ -85,6 +95,7 @@ exports.getCart = async (req, res) => {
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
+
 
 // ✅ Remove from Cart
 exports.removeFromCart = async (req, res) => {

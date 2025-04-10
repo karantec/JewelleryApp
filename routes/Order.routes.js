@@ -18,6 +18,6 @@ router.get('/:id', verifyToken, getOrderById);
 // router.put('/:id/cancel', verifyToken, cancelOrder);
 
 // 🔹 Admin: Get all orders
-router.get('/', verifyToken, getAllOrders);
+router.get('/',getAllOrders);
 
 module.exports = router;

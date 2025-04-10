@@ -7,6 +7,7 @@ const UserRoutes=require('./routes/user.routes')
 const GoldRoutes=require('./routes/product.routes');
 const homePageRoutes=require('./routes/Home.routes');
 const OrderRoutes=require('./routes/Order.routes');
+const AdminRoutes=require('./routes/Admin.Routes');
 const addressRoutes = require('./routes/address.routes'); 
 const CategoryRoutes=require('./routes/Category.routes');
 const blogRoutes=require('./routes/blog.routes');
@@ -29,7 +30,7 @@ app.options('*', cors());
 // OR Enable CORS with specific options
 app.use(
   cors({
-    origin: ['https://jewellery-app-dashboard.vercel.app', 'http://localhost:3000','http://localhost:3001/'], // Allow requests only from your dashboard
+    origin: ['https://jewellery-app-dashboard.vercel.app', 'http://localhost:3000',], // Allow requests only from your dashboard
     methods: ['GET', 'POST', 'PUT', 'DELETE'],   // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Custom headers if required
     credentials: true // Enable cookies or HTTP authentication headers
@@ -46,6 +47,7 @@ app.use('/category', CategoryRoutes);
 app.use('/about',AboutRoutes)
 app.use('/today-price',GoldPriceRoutes)
 app.use('/cart',CartRoutes)
+app.use('/admin',AdminRoutes);
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
   next(createError.NotFound());
