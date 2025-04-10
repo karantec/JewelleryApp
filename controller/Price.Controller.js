@@ -5,10 +5,16 @@ const addTodayPrice = async (req, res) => {
     try {
 
         const {Carat, TodayPricePerGram } = req.body;
+        
+       
 
         // Check if the required field is provided
       
         const TodayPricePer=Number(TodayPricePerGram);
+        const  carat=await  Pricing.findOne({ Carat });
+        if (carat) {
+            return res.status(400).json({ message: "Carat already exists" });
+        }
         // Create a new price entry
         const newPrice = new Pricing({
             Carat,
