@@ -281,31 +281,22 @@ const getGoldProducts = async (req, res) => {
 
 const getGoldProductById = async (req, res) => {
   try {
-    // Validate product ID
     const { id } = req.params;
+
+    // Validate product ID format
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ message: "Invalid product ID" });
     }
 
-    // Fetch product with populated category
+    // Find the product and populate the category field
     const product = await GoldProduct.findById(id).populate("category");
+
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Return only the editable fields
-    const productResponse = {
-      name: product.name,
-      description: product.description,
-      category: product.category,
-      image: product.image,
-      netWeight: product.netWeight,
-      grossWeight: product.grossWeight,
-      makingCharge: product.makingCharge,
-      pricePerGram: product.pricePerGram,
-    };
-
-    res.status(200).json(productResponse);
+    // Return the full product document
+    res.status(200).json(product);
   } catch (error) {
     console.error("Error fetching product:", error);
     res.status(500).json({ message: "Server error", error: error.message });
