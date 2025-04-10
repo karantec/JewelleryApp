@@ -432,4 +432,5 @@ module.exports = {
   changePassword,
   adminSignup,
   adminLogin,
+  getUserProfile,
 };

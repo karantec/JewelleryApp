@@ -1,5 +1,5 @@
 
-const { userSignup, userLogin, getAllUsers, getUserById, sendOTP, verifyOTP, changePassword } = require('../controller/User.Controller');
+const { userSignup, userLogin, getAllUsers, getUserById, sendOTP, verifyOTP, changePassword, getUserProfile } = require('../controller/User.Controller');
 const { verifyToken } = require('../middleware/authmiddleware');
 
 const router = require('express').Router();
@@ -22,6 +22,8 @@ router.post('/login', userLogin);
 // Protected Routes (Require Authentication)
 router.get('/users',getAllUsers);
 router.get('/:id', verifyToken, getUserById);
+
+router.get('/profile', verifyToken, getUserProfile);
 
 //change password
 router.put("/change-password", verifyToken, changePassword);
