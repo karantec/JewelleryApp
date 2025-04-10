@@ -29,7 +29,7 @@ app.get('/', async (req, res, next) => {
 app.options('*', cors()); 
 // OR Enable CORS with specific options
 
-app.use(cors());
+app.use(cors( ));
 
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
