@@ -25,15 +25,13 @@ app.use(morgan('dev'));
 app.get('/', async (req, res, next) => {
   res.send({ message: 'Awesome it works 🐻' });
 });
-
-app.options('*', cors()); 
 // OR Enable CORS with specific options
 app.use(
   cors({
     origin: ['https://jewellery-app-dashboard.vercel.app','https://ecommerce-flax-chi.vercel.app/'], // Allow requests only from your dashboard
     methods: ['GET', 'POST', 'PUT', 'DELETE'],   // Allowed HTTP methods
     allowedHeaders: ['Content-Type', 'Authorization'], // Custom headers if required
-    credentials: true // Enable cookies or HTTP authentication headers
+    // credentials: true // Enable cookies or HTTP authentication headers
   })
 );
 
