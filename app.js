@@ -1,4 +1,6 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const createError = require('http-errors');
 const morgan = require('morgan');
 const cors = require('cors');
@@ -17,6 +19,8 @@ const GoldPriceRoutes=require('./routes/Price.routes');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
@@ -25,16 +29,20 @@ app.use(morgan('dev'));
 app.get('/', async (req, res, next) => {
   res.send({ message: 'Awesome it works 🐻' });
 });
-// OR Enable CORS with specific options
-app.use(
-  cors({
-    origin: ['https://jewellery-app-dashboard.vercel.app','https://ecommerce-flax-chi.vercel.app/'], // Allow requests only from your dashboard
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],   // Allowed HTTP methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Custom headers if required
-    // credentials: true // Enable cookies or HTTP authentication headers
-  })
-);
 
+const io = new Server(server, {
+  cors: {
+    origin: ['https://jewellery-app-dashboard.vercel.app', 'https://ecommerce-flax-chi.vercel.app'],
+    methods: ['GET', 'POST']
+  }
+});
+
+io.on('connection', (socket) => {
+  console.log('A user connected via Socket.IO');
+  socket.on('disconnect', () => {
+    console.log('User disconnected');
+  });
+});
 // app.use('/api', require('./routes/api.route'));
 app.use('/auth', UserRoutes);
 app.use('/gold',GoldRoutes);
