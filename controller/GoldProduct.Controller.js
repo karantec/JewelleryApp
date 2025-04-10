@@ -278,30 +278,53 @@ const getGoldProducts = async (req, res) => {
     });
   }
 };
-
 const getGoldProductById = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Validate product ID format
+    // Validate product ID
     if (!id.match(/^[0-9a-fA-F]{24}$/)) {
       return res.status(400).json({ message: "Invalid product ID" });
     }
 
-    // Find the product and populate the category field
+    // Find the product by ID
     const product = await GoldProduct.findById(id).populate("category");
 
     if (!product) {
       return res.status(404).json({ message: "Product not found" });
     }
 
-    // Return the full product document
-    res.status(200).json(product);
+    // Get the latest price for the carat of the product
+    const latestPrice = await Pricing.findOne({ Carat: product.carat })
+      .sort({ createdAt: -1 });
+
+    const caratPrice = latestPrice?.TodayPricePerGram || 0;
+
+    // Calculate price details
+    const goldPrice = product.netWeight * caratPrice;
+    const makingChargeAmount = (goldPrice * product.makingcharge) / 100;
+    const totalPrice = goldPrice + makingChargeAmount;
+
+    // Convert to plain object and append priceDetails
+    const productObj = product.toObject();
+    productObj.priceDetails = {
+      goldPrice: goldPrice.toFixed(2),
+      makingChargeAmount: makingChargeAmount.toFixed(2),
+      totalPrice: totalPrice.toFixed(2),
+      pricePerGram: caratPrice,
+    };
+
+    res.status(200).json(productObj);
   } catch (error) {
-    console.error("Error fetching product:", error);
-    res.status(500).json({ message: "Server error", error: error.message });
+    console.error("🔥 Error in getGoldProductById:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message || error,
+    });
   }
 };
+
+
 
 // const deleteGoldProduct = async (req, res) => {
 //     try {
