@@ -85,6 +85,39 @@ exports.getCart = async (req, res) => {
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
 };
+exports.removeSingleItemFromCart = async (req, res) => {
+    try {
+        const { userId, productId } = req.body;
+
+        if (!userId || !productId) {
+            return res.status(400).json({ message: "User ID and Product ID are required" });
+        }
+
+        const cart = await Cart.findOne({ userId });
+        if (!cart) return res.status(404).json({ message: "Cart not found" });
+
+        const itemIndex = cart.items.findIndex(item => item.productId.toString() === productId);
+
+        if (itemIndex === -1) {
+            return res.status(404).json({ message: "Product not found in cart" });
+        }
+
+        const item = cart.items[itemIndex];
+
+        if (item.quantity > 1) {
+            item.quantity -= 1;
+        } else {
+            cart.items.splice(itemIndex, 1); // remove if quantity is 1
+        }
+
+        await cart.save();
+        res.status(200).json({ message: "Product quantity updated or removed", cart });
+
+    } catch (error) {
+        console.error("🔥 Error in removeSingleItemFromCart:", error);
+        res.status(500).json({ message: "Internal server error", error: error.message });
+    }
+};
 
 // ✅ Remove from Cart
 exports.removeFromCart = async (req, res) => {
@@ -102,4 +135,7 @@ exports.removeFromCart = async (req, res) => {
         console.error("🔥 Error in removeFromCart:", error);
         res.status(500).json({ message: "Internal server error", error: error.message });
     }
+
+
+
 };
