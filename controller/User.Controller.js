@@ -1,9 +1,9 @@
-require('dotenv').config();
+require("dotenv").config();
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const User = require("../models/User.model");
-const Admin=require("../models/Admin.model")
+const Admin = require("../models/Admin.model");
 // Use the JWT secret from .env (fallback to a default for development)
 const JWT_SECRET = process.env.JWT_SECRET || "your_secret_key";
 
@@ -13,7 +13,7 @@ const generateToken = (_id) => {
 };
 const generateAdminToken = (adminId) => {
   return jwt.sign({ id: adminId }, process.env.JWT_SECRET, {
-    expiresIn: '30d',
+    expiresIn: "30d",
   });
 };
 const twilio = require("twilio");
@@ -82,12 +82,6 @@ const userSignup = async (req, res) => {
   }
 };
 
-
-
-
-
-
-
 const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
@@ -126,7 +120,6 @@ const sendOTP = async (req, res) => {
   }
 };
 
-
 const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
@@ -139,7 +132,11 @@ const verifyOTP = async (req, res) => {
     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
 
     if (!TWILIO_VERIFY_SERVICE_SID) {
-      return res.status(500).json({ message: "Twilio Verify Service SID not found in environment" });
+      return res
+        .status(500)
+        .json({
+          message: "Twilio Verify Service SID not found in environment",
+        });
     }
 
     const verificationCheck = await twilioClient.verify.v2
@@ -155,7 +152,10 @@ const verifyOTP = async (req, res) => {
 
     let user = await User.findOne({ phone: phoneNumber });
     if (!user) {
-      const placeholderEmail = `user_${phoneNumber.replace("+", "")}@example.com`;
+      const placeholderEmail = `user_${phoneNumber.replace(
+        "+",
+        ""
+      )}@example.com`;
       user = new User({
         phone: phoneNumber,
         isVerified: true,
@@ -183,12 +183,14 @@ const verifyOTP = async (req, res) => {
     });
   } catch (error) {
     console.error("OTP Verification Error:", error);
-    res.status(500).json({ message: "OTP verification failed", error: error.message });
+    res
+      .status(500)
+      .json({ message: "OTP verification failed", error: error.message });
   }
 };
 const adminSignup = async (req, res) => {
   try {
-    const {  email, password } = req.body;
+    const { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({ message: "All fields are required" });
@@ -202,7 +204,6 @@ const adminSignup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newAdmin = new Admin({
-     
       email,
       password: hashedPassword,
     });
@@ -215,7 +216,7 @@ const adminSignup = async (req, res) => {
       message: "Admin registered successfully",
       admin: {
         _id: newAdmin._id,
-        
+
         email: newAdmin.email,
         createdAt: newAdmin.createdAt,
       },
@@ -233,7 +234,9 @@ const adminLogin = async (req, res) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      return res.status(400).json({ message: "Email and password are required" });
+      return res
+        .status(400)
+        .json({ message: "Email and password are required" });
     }
 
     const admin = await Admin.findOne({ email });
@@ -252,7 +255,7 @@ const adminLogin = async (req, res) => {
       message: "Admin login successful",
       admin: {
         _id: admin._id,
-        
+
         email: admin.email,
         createdAt: admin.createdAt,
       },
@@ -263,7 +266,6 @@ const adminLogin = async (req, res) => {
     res.status(500).json({ message: "Login failed", error: error.message });
   }
 };
-
 
 // User Login with JWT
 const userLogin = async (req, res) => {
@@ -331,47 +333,7 @@ const getUserById = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch user" });
   }
 };
-const getUserProfile = async (req, res) => {
-  try {
-    // Get user ID from authenticated request
-    // This assumes you have authentication middleware that adds user info to req.user
-    const userId = req.user._id;
 
-    if (!userId) {
-      return res.status(401).json({ message: "Authentication required" });
-    }
-
-    // Fetch user from database (excluding password)
-    const user = await User.findById(userId).select("-password");
-    
-    if (!user) {
-      return res.status(404).json({ message: "User not found" });
-    }
-
-    // Return user profile data
-    res.status(200).json({
-      success: true,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        profileImage: user.profileImage,
-        addresses: user.addresses,
-        isVerified: user.isVerified,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt
-      }
-    });
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Failed to fetch user profile", 
-      error: error.message 
-    });
-  }
-};
 // Get all users (Protected)
 const getAllUsers = async (req, res) => {
   try {
@@ -387,8 +349,99 @@ const getAllUsers = async (req, res) => {
       .json({ message: "Failed to fetch users", error: error.message });
   }
 };
+const getUserProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
 
+    // Check if userId exists
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
 
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: "Invalid user ID format" });
+    }
+
+    const user = await User.findById(userId).select("-password");
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    return res.status(200).json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        addresses: user.addresses,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch user profile",
+      error: error.message,
+    });
+  }
+};
+const updateUserProfile = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    const { name, email, phone, profileImage, addresses } = req.body;
+
+    // Find the user
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Update fields only if provided
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (phone) user.phone = phone;
+    if (profileImage) user.profileImage = profileImage;
+    if (addresses) user.addresses = addresses;
+
+    // Save updated user
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "User profile updated successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        addresses: user.addresses,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Error updating user profile:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to update user profile",
+      error: error.message,
+    });
+  }
+};
 const changePassword = async (req, res) => {
   try {
     const { userId } = req.user; // Assuming user ID is extracted from authenticated token
@@ -396,7 +449,9 @@ const changePassword = async (req, res) => {
 
     // Validate input
     if (!oldPassword || !newPassword) {
-      return res.status(400).json({ message: "Old and new passwords are required" });
+      return res
+        .status(400)
+        .json({ message: "Old and new passwords are required" });
     }
 
     // Find user in database
@@ -419,9 +474,14 @@ const changePassword = async (req, res) => {
     res.status(200).json({ message: "Password changed successfully" });
   } catch (error) {
     console.error("Change Password Error:", error);
-    res.status(500).json({ message: "Failed to change password", error: error.message });
+    res
+      .status(500)
+      .json({ message: "Failed to change password", error: error.message });
   }
+
+  
 };
+
 module.exports = {
   userSignup,
   userLogin,
@@ -433,4 +493,5 @@ module.exports = {
   adminSignup,
   adminLogin,
   getUserProfile,
+  updateUserProfile,
 };

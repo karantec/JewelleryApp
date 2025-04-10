@@ -4,6 +4,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'your_secret_key';
 
 const verifyToken = (req, res, next) => {
   const authHeader = req.header('Authorization');
+
   if (!authHeader) {
     return res.status(401).json({ message: 'Access denied, token missing' });
   }
@@ -12,16 +13,16 @@ const verifyToken = (req, res, next) => {
 
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
+    console.log('Decoded Token:', decoded);
 
-    // ✅ Make sure your token was created with _id field
     if (!decoded || !decoded._id) {
       return res.status(400).json({ message: 'Invalid token payload' });
     }
 
-    req.user = decoded; // decoded = { _id, ... }
+    req.user = decoded; // attach user to request
     next();
   } catch (error) {
-    res.status(400).json({ message: 'Invalid token' });
+    return res.status(400).json({ message: 'Invalid token', error: error.message });
   }
 };
 
