@@ -331,7 +331,47 @@ const getUserById = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch user" });
   }
 };
+const getUserProfile = async (req, res) => {
+  try {
+    // Get user ID from authenticated request
+    // This assumes you have authentication middleware that adds user info to req.user
+    const userId = req.user._id;
 
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+
+    // Fetch user from database (excluding password)
+    const user = await User.findById(userId).select("-password");
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Return user profile data
+    res.status(200).json({
+      success: true,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        addresses: user.addresses,
+        isVerified: user.isVerified,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    res.status(500).json({ 
+      success: false, 
+      message: "Failed to fetch user profile", 
+      error: error.message 
+    });
+  }
+};
 // Get all users (Protected)
 const getAllUsers = async (req, res) => {
   try {
