@@ -25,6 +25,7 @@ const createOrder = async (req, res) => {
     }
 
     let totalAmount = 0;
+    const orderItems = [];
 
     for (const item of cart.items) {
       const product = item.productId;
@@ -49,11 +50,26 @@ const createOrder = async (req, res) => {
       const totalItemPrice = +(priceWithGST * item.quantity).toFixed(2);
 
       totalAmount += totalItemPrice;
+
+      // ✅ Push item with snapshot to order items array
+      orderItems.push({
+        productId: product._id,
+        quantity: item.quantity,
+        priceAtTimeOfAdding: priceWithGST,
+        productSnapshot: {
+          name: product.name,
+          description: product.description,
+          category: product.category,
+          image: product.image,
+          // Add more fields as needed
+        },
+      });
     }
 
     const newOrderData = {
       userId,
       cartId: cart._id,
+      items: orderItems,
       totalAmount,
       shippingAddress,
       paymentMethod,
@@ -101,10 +117,20 @@ const createOrder = async (req, res) => {
   }
 };
 
+
 const getOrdersByUser = async (req, res) => {
   try {
     const { _id: userId } = req.user || {};
-    const orders = await Order.find({ userId }).sort({ createdAt: -1 });
+
+    const orders = await Order.find({ userId })
+      .populate({
+        path: 'cartId',
+        populate: {
+          path: 'items.productId',
+          model: 'GoldProduct'
+        }
+      })
+      .sort({ createdAt: -1 });
 
     res.status(200).json(orders);
   } catch (error) {
@@ -113,9 +139,18 @@ const getOrdersByUser = async (req, res) => {
   }
 };
 
+
 const getOrderById = async (req, res) => {
   try {
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findById(req.params.id)
+      .populate({
+        path: 'cartId',
+        populate: {
+          path: 'items.productId',
+          model: 'GoldProduct'
+        }
+      });
+
     if (!order) return res.status(404).json({ message: "Order not found" });
 
     res.status(200).json(order);
@@ -126,13 +161,23 @@ const getOrderById = async (req, res) => {
 };
 const getAllOrders = async (req, res) => {
   try {
-    const orders = await Order.find().sort({ createdAt: -1 });
+    const orders = await Order.find()
+      .populate({
+        path: 'cartId',
+        populate: {
+          path: 'items.productId',
+          model: 'GoldProduct'
+        }
+      })
+      .sort({ createdAt: -1 });
+
     res.status(200).json(orders);
   } catch (error) {
     console.error("🔥 Error in getAllOrders:", error);
     res.status(500).json({ message: "Internal server error", error: error.message });
   }
 };
+
 
 
 

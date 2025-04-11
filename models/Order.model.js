@@ -6,11 +6,39 @@ const orderSchema = new mongoose.Schema({
     ref: 'Cart',
     required: true
   },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  items: [
+    {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'GoldProduct',
+        required: true
+      },
+      quantity: {
+        type: Number,
+        required: true
+      },
+      priceAtTimeOfAdding: {
+        type: Number,
+        required: true
+      },
+      productSnapshot: {
+        name: String,
+        description: String,
+        category: String,
+        image: String,
+        // add any other relevant fields from your GoldProduct model
+      }
+    }
+  ],
   totalAmount: {
     type: Number,
     required: true
   },
-
   shippingAddress: {
     fullName: { type: String, required: true },
     addressLine1: { type: String, required: true },
@@ -21,43 +49,36 @@ const orderSchema = new mongoose.Schema({
     country: { type: String, required: true },
     phone: { type: String, required: true }
   },
-
   paymentMethod: {
     type: String,
     enum: ['COD', 'ONLINE'],
     required: true,
     default: 'COD'
   },
-
   paymentStatus: {
     type: String,
     enum: ['Pending', 'Paid', 'Failed', 'Refunded'],
     default: 'Pending'
   },
-
   orderStatus: {
     type: String,
     enum: ['Created', 'ORDER PLACED', 'Shipped', 'Delivered', 'Cancelled', 'Deleted'],
     default: 'Created'
   },
-
   razorpay: {
     orderId: { type: String },
     paymentId: { type: String },
     signature: { type: String },
     orderDetails: { type: Object }
   },
-
   orderDate: {
     type: Date,
     default: Date.now
   },
-
   deletedAt: {
     type: Date,
     default: null
   }
-
 }, { timestamps: true });
 
 module.exports = mongoose.model('Order', orderSchema);
