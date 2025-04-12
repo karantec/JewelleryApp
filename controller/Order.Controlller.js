@@ -36,22 +36,16 @@ const createOrder = async (req, res) => {
         });
       }
 
-      // ✅ Get the latest price per product
       const priceDetails = await product.getCurrentPrice();
       const latestBasePrice = parseFloat(priceDetails.currentTotalPrice);
       if (isNaN(latestBasePrice)) {
         return res.status(400).json({ message: 'Unable to get latest product price' });
       }
 
-      // ✅ Add 3% GST
       const priceWithGST = +(latestBasePrice * 1.03).toFixed(2);
-
-      // ✅ Multiply by quantity
       const totalItemPrice = +(priceWithGST * item.quantity).toFixed(2);
-
       totalAmount += totalItemPrice;
 
-      // ✅ Push item with snapshot to order items array
       orderItems.push({
         productId: product._id,
         quantity: item.quantity,
@@ -61,7 +55,6 @@ const createOrder = async (req, res) => {
           description: product.description,
           category: product.category,
           image: product.image,
-          // Add more fields as needed
         },
       });
     }
@@ -78,10 +71,19 @@ const createOrder = async (req, res) => {
       orderDate: new Date(),
     };
 
-    // ✅ Handle Razorpay order creation
+    // ✅ Razorpay payment method with max limit check
     if (paymentMethod === 'ONLINE') {
+      const amountInPaisa = Math.round(totalAmount * 100);
+      const MAX_RAZORPAY_AMOUNT = 50000000 * 100; // ₹5,00,000 in paisa
+
+      if (amountInPaisa > MAX_RAZORPAY_AMOUNT) {
+        return res.status(400).json({
+          message: 'Order amount exceeds Razorpay’s ₹5,00,000 limit. Please split your cart.',
+        });
+      }
+
       const razorpayOrder = await razorpay.orders.create({
-        amount: Math.round(totalAmount * 100), // in paisa
+        amount: amountInPaisa,
         currency: 'INR',
         receipt: `order_rcptid_${cart._id}`,
         payment_capture: 1,
@@ -96,14 +98,12 @@ const createOrder = async (req, res) => {
     const newOrder = new Order(newOrderData);
     await newOrder.save();
 
-    // ✅ Mark all products as unavailable
     for (const item of cart.items) {
       await GoldProduct.findByIdAndUpdate(item.productId._id, {
         isAvailable: false,
       });
     }
 
-    // ✅ Clear cart
     await Cart.findByIdAndUpdate(cartId, { $set: { items: [] } });
 
     res.status(201).json({
@@ -116,6 +116,7 @@ const createOrder = async (req, res) => {
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
+
 
 
 const getOrdersByUser = async (req, res) => {
