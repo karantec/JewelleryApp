@@ -2,7 +2,7 @@
 const express = require('express');
 
 const { verifyToken, isAdmin } = require('../middleware/authmiddleware');
-const { createOrder, getOrdersByUser, getOrderById, getAllOrders } = require('../controller/Order.Controlller');
+const { createOrder, getOrdersByUser, getOrderById, getAllOrders, verifyPayment } = require('../controller/Order.Controlller');
 const router = express.Router();
 
 // 🔹 Create a new order (Authenticated users only)
@@ -14,6 +14,8 @@ router.get('/my-orders', verifyToken, getOrdersByUser);
 // 🔹 Get a specific order by ID
 router.get('/:id', verifyToken, getOrderById);
 
+
+router.post('/verify', verifyPayment);
 // 🔹 Cancel an order
 // router.put('/:id/cancel', verifyToken, cancelOrder);
 

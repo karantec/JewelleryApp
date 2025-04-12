@@ -1,4 +1,5 @@
 const Razorpay = require('razorpay');
+const crypto = require('crypto');
 const Order = require('../models/Order.model');
 const Cart = require('../models/Cart.model');
 const GoldProduct = require('../models/GoldProduct.model');
@@ -8,6 +9,8 @@ const razorpay = new Razorpay({
   key_id: process.env.RAZORPAY_KEY_ID,
   key_secret: process.env.RAZORPAY_KEY_SECRET,
 });
+
+
 
 // 🔹 Create Order
 const createOrder = async (req, res) => {
@@ -119,6 +122,53 @@ const createOrder = async (req, res) => {
 
 
 
+
+const verifyPayment = async (req, res) => {
+  try {
+    const {
+      razorpay_order_id,
+      razorpay_payment_id,
+      razorpay_signature,
+      orderId, // our own order _id in DB
+    } = req.body;
+
+    // Step 1: Verify Razorpay signature
+    const generatedSignature = crypto
+      .createHmac('sha256', process.env.RAZORPAY_SECRET)
+      .update(razorpay_order_id + '|' + razorpay_payment_id)
+      .digest('hex');
+
+    if (generatedSignature !== razorpay_signature) {
+      return res.status(400).json({ message: 'Payment verification failed' });
+    }
+
+    // Step 2: Update order status in DB
+    const updatedOrder = await Order.findByIdAndUpdate(
+      orderId,
+      {
+        paymentStatus: 'Paid',
+        orderStatus: 'ORDER PLACED',
+        'razorpay.paymentId': razorpay_payment_id,
+        'razorpay.signature': razorpay_signature,
+      },
+      { new: true }
+    );
+
+    if (!updatedOrder) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.status(200).json({
+      message: 'Payment verified successfully',
+      order: updatedOrder,
+    });
+  } catch (error) {
+    console.error('🔥 Error verifying payment:', error);
+    res.status(500).json({ message: 'Internal server error', error: error.message });
+  }
+};
+
+
 const getOrdersByUser = async (req, res) => {
   try {
     const { _id: userId } = req.user || {};
@@ -182,4 +232,4 @@ const getAllOrders = async (req, res) => {
 
 
 
-module.exports = { createOrder ,getOrdersByUser,getOrderById,getAllOrders};
+module.exports = { createOrder ,getOrdersByUser, verifyPayment,getOrderById,getAllOrders};
