@@ -46,7 +46,7 @@ app.use(
 app.use("/auth", UserRoutes);
 app.use("/gold", GoldRoutes);
 app.use("/home", homePageRoutes);
-// app.use('/order',OrderRoutes);
+app.use("/order", OrderRoutes);
 app.use("/address", addressRoutes);
 app.use("/blog", blogRoutes);
 app.use("/category", CategoryRoutes);
@@ -58,7 +58,6 @@ app.use("/admin", AdminRoutes);
 app.use((req, res, next) => {
   next(createError.NotFound());
 });
-
 require("./services/priceUpdater");
 // Error handling middleware
 app.use((err, req, res, next) => {
