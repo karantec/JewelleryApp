@@ -34,7 +34,7 @@ app.use(
       'https://jewellery-app-dashboard.vercel.app',
       'http://localhost:3000',
       'http://localhost:3001',
-      'https://ecommerce-flax-chi.vercel.app' // <-- removed trailing slash here
+      'https://srilaxmialankar.com' // <-- removed trailing slash here
     ],
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     allowedHeaders: ['Content-Type', 'Authorization'],
