@@ -31,10 +31,17 @@ app.options("*", cors());
 app.use(
   cors({
     origin: [
+<<<<<<< HEAD
       "https://jewellery-app-dashboard.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001",
       "https://ecommerce-flax-chi.vercel.app", // <-- removed trailing slash here
+=======
+      'https://jewellery-app-dashboard.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'https://srilaxmialankar.com' // <-- removed trailing slash here
+>>>>>>> 981262ca39ea1afec51f23efb49225001be5e919
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
