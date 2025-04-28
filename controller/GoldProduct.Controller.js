@@ -32,13 +32,10 @@ const addGoldProduct = async (req, res) => {
     const validCarats = ["24K", "22K", "18K", "1K"];
 
     if (!carat || !validCarats.includes(carat)) {
-    return res
-        .status(400)
-        .json({
-          message: "Valid carat value is required (24K, 22K, 18K, 1K)",
-        });
+      return res.status(400).json({
+        message: "Valid carat value is required (24K, 22K, 18K, 1K)",
+      });
     }
-  
 
     const existingProduct = await GoldProduct.findOne({ name: name });
     if (existingProduct) {
@@ -49,11 +46,9 @@ const addGoldProduct = async (req, res) => {
       createdAt: -1,
     });
     if (!latestPrice) {
-      return res
-        .status(404)
-        .json({
-          message: `Price not found for ${carat}. Please add pricing first.`,
-        });
+      return res.status(404).json({
+        message: `Price not found for ${carat}. Please add pricing first.`,
+      });
     }
 
     let coverImageUrl = "";
@@ -126,37 +121,11 @@ const addGoldProduct = async (req, res) => {
 
 const updateGoldProduct = async (req, res) => {
   try {
-    const {
-      name,
-      category,
-      netWeight,
-      grossWeight,
-      description,
-      carat,
-      makingcharge,
-    } = req.body;
+    const { name, category, netWeight, description } = req.body;
+
     const product = await GoldProduct.findById(req.params.id);
-    if (!product) return res.status(404).json({ message: "Product not found" });
-
-    let coverImageUrl = product.coverImage;
-    let imageUrls = product.images;
-
-    if (req.files) {
-      if (req.files.coverImage && req.files.coverImage.length > 0) {
-        const coverUploadResult = await cloudinary.uploader.upload(
-          req.files.coverImage[0].path,
-          { folder: "gold_products" }
-        );
-        coverImageUrl = coverUploadResult.secure_url;
-      }
-
-      if (req.files.images && req.files.images.length > 0) {
-        const imageUploadPromises = req.files.images.map((image) =>
-          cloudinary.uploader.upload(image.path, { folder: "gold_products" })
-        );
-        const uploadResults = await Promise.all(imageUploadPromises);
-        imageUrls = uploadResults.map((result) => result.secure_url);
-      }
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
     }
 
     const updatedProduct = await GoldProduct.findByIdAndUpdate(
@@ -165,22 +134,15 @@ const updateGoldProduct = async (req, res) => {
         name,
         category,
         netWeight,
-        grossWeight,
-        makingcharge,
         description,
-        carat,
-        coverImage: coverImageUrl,
-        images: imageUrls,
       },
       { new: true }
     );
 
-    res
-      .status(200)
-      .json({
-        message: "Product updated successfully",
-        product: updatedProduct,
-      });
+    res.status(200).json({
+      message: "Product updated successfully",
+      product: updatedProduct,
+    });
   } catch (error) {
     console.error("🔥 Error in updateGoldProduct:", error);
     res
@@ -295,8 +257,9 @@ const getGoldProductById = async (req, res) => {
     }
 
     // Get the latest price for the carat of the product
-    const latestPrice = await Pricing.findOne({ Carat: product.carat })
-      .sort({ createdAt: -1 });
+    const latestPrice = await Pricing.findOne({ Carat: product.carat }).sort({
+      createdAt: -1,
+    });
 
     const caratPrice = latestPrice?.TodayPricePerGram || 0;
 
@@ -323,8 +286,6 @@ const getGoldProductById = async (req, res) => {
     });
   }
 };
-
-
 
 // const deleteGoldProduct = async (req, res) => {
 //     try {
