@@ -13,6 +13,7 @@ const CategoryRoutes = require("./routes/Category.routes");
 const blogRoutes = require("./routes/blog.routes");
 const CartRoutes = require("./routes/Cart.routes");
 const AboutRoutes = require("./routes/About.routes");
+const crouselRoutes = require("./routes/Crousel.routes");
 const GoldPriceRoutes = require("./routes/Price.routes");
 require("dotenv").config();
 
@@ -34,7 +35,7 @@ app.use(
       "https://jewellery-app-dashboard.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://ecommerce-flax-chi.vercel.app", // <-- removed trailing slash here
+      "https://srilaxmialankar.com", // <-- removed trailing slash here
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -47,6 +48,7 @@ app.use("/auth", UserRoutes);
 app.use("/gold", GoldRoutes);
 app.use("/home", homePageRoutes);
 app.use("/order", OrderRoutes);
+app.use("/crousel", crouselRoutes);
 app.use("/address", addressRoutes);
 app.use("/blog", blogRoutes);
 app.use("/category", CategoryRoutes);
