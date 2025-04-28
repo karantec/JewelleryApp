@@ -29,11 +29,11 @@ const addGoldProduct = async (req, res) => {
         .status(400)
         .json({ message: "Valid makingCharge percentage is required" });
     }
-    const validCarats = ["24K", "22K", "18K", "1K"];
+    const validCarats = ["24K", "22K", "18K", "Silver"];
 
     if (!carat || !validCarats.includes(carat)) {
       return res.status(400).json({
-        message: "Valid carat value is required (24K, 22K, 18K, 1K)",
+        message: "Valid carat value is required (24K, 22K, 18K, Silver)",
       });
     }
 
