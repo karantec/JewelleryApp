@@ -12,6 +12,7 @@ const addressRoutes = require("./routes/address.routes");
 const CategoryRoutes = require("./routes/Category.routes");
 const FeatureRoutes = require("./routes/Feature.routes");
 const blogRoutes = require("./routes/blog.routes");
+const EveryRoutes = require("./routes/EveryDay.routes");
 const ShopRoutes = require("./routes/Shop.routes");
 const CartRoutes = require("./routes/Cart.routes");
 const BestRoutes = require("./routes/Best.route");
@@ -64,6 +65,8 @@ app.use("/admin", AdminRoutes);
 app.use("/testimonial", TestimonialRoutes);
 app.use("/best", BestRoutes);
 app.use("/feature", FeatureRoutes);
+app.use("/Everyday", EveryRoutes);
+
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
   next(createError.NotFound());
