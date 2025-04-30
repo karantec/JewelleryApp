@@ -1,48 +1,34 @@
 // models/pageContent.js
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 // Feature sub-schema
-const AboutSchema = new mongoose.Schema({
-  
-  about: {
-    type: String,
-    
-  },
+const AboutSchemaUp = new mongoose.Schema({
   title: {
     type: String,
-    
   },
-  buttonText: {
+  subtitle: {
     type: String,
-    default: 'Know More'
   },
   description1: {
     type: String,
-    
   },
-  featuredImage: {
-    type: String, // URL to image
- 
-  },
-  history:{
+  description2: {
     type: String,
-    
   },
-  category: {
+  description3: {
     type: String,
-    enum: ['CRAFTSMANSHIP', 'QUALITY MATERIALS', 'CUSTOMIZATION', 'SECURE SHOPPING', 'LEARN GUARANTEE'],
-   
   },
-  establishedYear: {
-    type: Number
-  },
-  founderImage: {
+  Image1: {
     type: String, // URL to image
-    
+  },
+  Image2: {
+    type: String, // URL to image
+  },
+  Image3: {
+    type: String, // URL to image
   },
 });
 
 // Main schema combining all sections
 
-
-module.exports = mongoose.model('About', AboutSchema);
+module.exports = mongoose.model("About", AboutSchemaUp);

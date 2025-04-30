@@ -1,10 +1,17 @@
-const express = require('express');
-const {createAbout,getAllAbout}=require('../controller/About.Controller')
+const express = require("express");
 const router = express.Router();
+const {
+  createAbout,
+  getAllAbout,
+  getAboutById,
+  updateAbout,
+  deleteAbout,
+} = require("../controller/About.Controller");
 
-// **Routes**
-router.post('/create',createAbout);
-router.get('/about', getAllAbout);
-
+router.post("/", createAbout);
+router.get("/", getAllAbout);
+router.get("/:id", getAboutById);
+router.put("/:id", updateAbout);
+router.delete("/:id", deleteAbout);
 
 module.exports = router;
