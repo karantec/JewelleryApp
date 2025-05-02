@@ -5,7 +5,7 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const UserRoutes = require("./routes/user.routes");
 const GoldRoutes = require("./routes/product.routes");
-// const OrderRoutes = require("./routes/Order.routes");
+const OrderRoutes = require("./routes/Order.routes");
 const AdminRoutes = require("./routes/Admin.Routes");
 const addressRoutes = require("./routes/address.routes");
 const CategoryRoutes = require("./routes/Category.routes");
@@ -53,7 +53,7 @@ app.use(
 app.use("/auth", UserRoutes);
 app.use("/gold", GoldRoutes);
 app.use("/about", AboutRoutes);
-// app.use("/order", OrderRoutes);
+app.use("/order", OrderRoutes);
 app.use("/crousel", crouselRoutes);
 app.use("/address", addressRoutes);
 app.use("/blog", blogRoutes);
