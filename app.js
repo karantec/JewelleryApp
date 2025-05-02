@@ -40,7 +40,8 @@ app.use(
       "https://jewellery-app-dashboard.vercel.app",
       "http://localhost:3000",
       "http://localhost:3001",
-      "https://srilaxmialankar.com", // <-- removed trailing slash here
+      "https://srilaxmialankar.com",
+      "https://dashboard.srilaxmialankar.com/", // <-- removed trailing slash here
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -64,6 +65,7 @@ app.use("/cart", CartRoutes);
 app.use("/instagram", InstagramRoutes);
 app.use("/admin", AdminRoutes);
 app.use("/testimonial", TestimonialRoutes);
+
 app.use("/best", BestRoutes);
 app.use("/feature", FeatureRoutes);
 app.use("/Everyday", EveryRoutes);
