@@ -41,7 +41,7 @@ app.use(
       "http://localhost:3000",
       "http://localhost:3001",
       "https://srilaxmialankar.com",
-      "https://dashboard.srilaxmialankar.com/", // <-- removed trailing slash here
+      "https://dashboard.srilaxmialankar.com", // <-- removed trailing slash here
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     allowedHeaders: ["Content-Type", "Authorization"],
