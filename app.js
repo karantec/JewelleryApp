@@ -39,7 +39,7 @@ app.use(
     origin: [
       "https://jewellery-app-dashboard.vercel.app",
       "http://localhost:3000",
-      "http://localhost:3001",
+      "http://localhost:5173",
       "https://srilaxmialankar.com",
       "https://dashboard.srilaxmialankar.com", // <-- removed trailing slash here
     ],
