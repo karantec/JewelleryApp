@@ -240,6 +240,83 @@ const getGoldProducts = async (req, res) => {
     });
   }
 };
+
+const getPaginatedGoldProducts = async (req, res) => {
+  try {
+    // Read page and limit from query params
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 15;
+    const skip = (page - 1) * limit;
+
+    // Total count for pagination info
+    const totalProducts = await GoldProduct.countDocuments();
+
+    // Fetch paginated products
+    const products = await GoldProduct.find()
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    if (!products || products.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No products found on this page" });
+    }
+
+    // Fetch latest price per carat
+    const latestPrices = await Pricing.aggregate([
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: "$Carat",
+          TodayPricePerGram: { $first: "$TodayPricePerGram" },
+          updatedAt: { $first: "$createdAt" },
+        },
+      },
+    ]);
+
+    // Create lookup for carat prices
+    const pricesByCarat = {};
+    latestPrices.forEach((price) => {
+      pricesByCarat[price._id] = price.TodayPricePerGram;
+    });
+
+    // Add calculated price data to each product
+    const productsWithPrices = products.map((product) => {
+      const productObj = product.toObject();
+      const caratPrice = pricesByCarat[product.carat] || 0;
+
+      const goldPrice = product.netWeight * caratPrice;
+      const makingChargeAmount = (goldPrice * product.makingcharge) / 100;
+      const totalPrice = goldPrice + makingChargeAmount;
+
+      productObj.priceDetails = {
+        goldPrice: goldPrice.toFixed(2),
+        makingChargeAmount: makingChargeAmount.toFixed(2),
+        totalPrice: totalPrice.toFixed(2),
+        pricePerGram: caratPrice,
+      };
+
+      return productObj;
+    });
+
+    // Send response
+    res.status(200).json({
+      currentPage: page,
+      totalPages: Math.ceil(totalProducts / limit),
+      totalProducts,
+      count: productsWithPrices.length,
+      products: productsWithPrices,
+    });
+  } catch (error) {
+    console.error("🔥 Error in getPaginatedGoldProducts:", error);
+    res.status(500).json({
+      message: "Server error",
+      error: error.message || error,
+    });
+  }
+};
+
 const getGoldProductById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -317,6 +394,7 @@ const getGoldProductById = async (req, res) => {
 module.exports = {
   addGoldProduct,
   getGoldProducts,
+  getPaginatedGoldProducts,
   getGoldProductById,
   updateGoldProduct,
   deleteGoldProduct,
