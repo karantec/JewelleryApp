@@ -243,16 +243,29 @@ const getGoldProducts = async (req, res) => {
 
 const getPaginatedGoldProducts = async (req, res) => {
   try {
-    // Read page and limit from query params
+    // Read page, limit, category, and search from query params
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 15;
     const skip = (page - 1) * limit;
 
-    // Total count for pagination info
-    const totalProducts = await GoldProduct.countDocuments();
+    const { category, search } = req.query;
+
+    // Build dynamic filter
+    const filter = {};
+
+    if (category) {
+      filter.category = category;
+    }
+
+    if (search) {
+      filter.title = { $regex: search, $options: "i" }; // case-insensitive partial match
+    }
+
+    // Total count based on filters
+    const totalProducts = await GoldProduct.countDocuments(filter);
 
     // Fetch paginated products
-    const products = await GoldProduct.find()
+    const products = await GoldProduct.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit);
