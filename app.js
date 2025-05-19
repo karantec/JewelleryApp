@@ -17,14 +17,21 @@ const EveryRoutes = require("./routes/EveryDay.routes");
 const ShopsRoutes = require("./routes/Shop3.route");
 const CartRoutes = require("./routes/Cart.routes");
 const BestRoutes = require("./routes/Best.route");
+// const ContactRoutes = require("./routes/Contact.route");
 const AboutRoutes = require("./routes/About.routes");
+const RelatedRoutes = require("./routes/Related.routes");
 const TestimonialRoutes = require("./routes/Testimonial.routes");
 const crouselRoutes = require("./routes/Crousel.routes");
 const GoldPriceRoutes = require("./routes/Price.routes");
+
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+app.use(express.json());
+
+// Parse URL-encoded data (for forms)
+
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
@@ -59,14 +66,15 @@ app.use("/crousel", crouselRoutes);
 app.use("/address", addressRoutes);
 app.use("/blog", blogRoutes);
 app.use("/category", CategoryRoutes);
+// app.use("/contact", ContactRoutes);
 app.use("/shop", ShopRoutes);
 app.use("/shopdetails", ShopsRoutes);
 app.use("/today-price", GoldPriceRoutes);
 app.use("/cart", CartRoutes);
+app.use("/related", RelatedRoutes);
 app.use("/instagram", InstagramRoutes);
 app.use("/admin", AdminRoutes);
 app.use("/testimonial", TestimonialRoutes);
-
 app.use("/best", BestRoutes);
 app.use("/feature", FeatureRoutes);
 app.use("/Everyday", EveryRoutes);
