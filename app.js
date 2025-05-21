@@ -17,7 +17,7 @@ const EveryRoutes = require("./routes/EveryDay.routes");
 const ShopsRoutes = require("./routes/Shop3.route");
 const CartRoutes = require("./routes/Cart.routes");
 const BestRoutes = require("./routes/Best.route");
-// const ContactRoutes = require("./routes/Contact.route");
+const SupportRoutes = require("./routes/Support.routes");
 const AboutRoutes = require("./routes/About.routes");
 const RelatedRoutes = require("./routes/Related.routes");
 const TestimonialRoutes = require("./routes/Testimonial.routes");
@@ -27,7 +27,6 @@ const GoldPriceRoutes = require("./routes/Price.routes");
 require("dotenv").config();
 
 const app = express();
-app.use(express.json());
 app.use(express.json());
 
 // Parse URL-encoded data (for forms)
@@ -64,9 +63,9 @@ app.use("/about", AboutRoutes);
 app.use("/order", OrderRoutes);
 app.use("/crousel", crouselRoutes);
 app.use("/address", addressRoutes);
+app.use("/support", SupportRoutes);
 app.use("/blog", blogRoutes);
 app.use("/category", CategoryRoutes);
-// app.use("/contact", ContactRoutes);
 app.use("/shop", ShopRoutes);
 app.use("/shopdetails", ShopsRoutes);
 app.use("/today-price", GoldPriceRoutes);
