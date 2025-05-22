@@ -5,25 +5,33 @@ const cors = require("cors");
 const connectDB = require("./config/db");
 const UserRoutes = require("./routes/user.routes");
 const GoldRoutes = require("./routes/product.routes");
+const ShopRoutes = require("./routes/Shop3.route");
 const OrderRoutes = require("./routes/Order.routes");
 const AdminRoutes = require("./routes/Admin.Routes");
+const GiftingRoutes = require("./routes/Gifting.routes");
 const addressRoutes = require("./routes/address.routes");
 const CategoryRoutes = require("./routes/Category.routes");
 const FeatureRoutes = require("./routes/Feature.routes");
 const blogRoutes = require("./routes/blog.routes");
 const InstagramRoutes = require("./routes/Instagram.routes");
 const EveryRoutes = require("./routes/EveryDay.routes");
-const ShopRoutes = require("./routes/Shop.routes");
+const ShopsRoutes = require("./routes/Shop3.route");
 const CartRoutes = require("./routes/Cart.routes");
 const BestRoutes = require("./routes/Best.route");
+const SupportRoutes = require("./routes/Support.routes");
 const AboutRoutes = require("./routes/About.routes");
+const RelatedRoutes = require("./routes/Related.routes");
 const TestimonialRoutes = require("./routes/Testimonial.routes");
 const crouselRoutes = require("./routes/Crousel.routes");
 const GoldPriceRoutes = require("./routes/Price.routes");
+
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
+
+// Parse URL-encoded data (for forms)
+
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
@@ -56,16 +64,18 @@ app.use("/about", AboutRoutes);
 app.use("/order", OrderRoutes);
 app.use("/crousel", crouselRoutes);
 app.use("/address", addressRoutes);
+app.use("/support", SupportRoutes);
 app.use("/blog", blogRoutes);
 app.use("/category", CategoryRoutes);
 app.use("/shop", ShopRoutes);
-
+app.use("/gifting", GiftingRoutes);
+app.use("/shopdetails", ShopsRoutes);
 app.use("/today-price", GoldPriceRoutes);
 app.use("/cart", CartRoutes);
+app.use("/related", RelatedRoutes);
 app.use("/instagram", InstagramRoutes);
 app.use("/admin", AdminRoutes);
 app.use("/testimonial", TestimonialRoutes);
-
 app.use("/best", BestRoutes);
 app.use("/feature", FeatureRoutes);
 app.use("/Everyday", EveryRoutes);

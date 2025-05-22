@@ -2,6 +2,8 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
+
+const axios = require("axios");
 const User = require("../models/User.model");
 const Admin = require("../models/Admin.model");
 // Use the JWT secret from .env (fallback to a default for development)
@@ -16,16 +18,18 @@ const generateAdminToken = (adminId) => {
     expiresIn: "30d",
   });
 };
-const twilio = require("twilio");
 
-// Load Twilio credentials from environment variables
-const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
-const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
+FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
+// const twilio = require("twilio");
 
-// Initialize Twilio client
-const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+// // Load Twilio credentials from environment variables
+// const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
+// const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
+// const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
+// const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
+
+// // Initialize Twilio client
+// const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
 
 // User Signup
 const userSignup = async (req, res) => {
@@ -82,84 +86,169 @@ const userSignup = async (req, res) => {
   }
 };
 
+// const sendOTP = async (req, res) => {
+//   try {
+//     const { phone } = req.body;
+
+//     if (!phone) {
+//       return res.status(400).json({ message: "Phone number is required" });
+//     }
+
+//     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
+
+//     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
+
+//     if (!TWILIO_VERIFY_SERVICE_SID) {
+//       return res
+//         .status(500)
+//         .json({ message: "Twilio Verify Service SID is not configured" });
+//     }
+
+//     const verification = await twilioClient.verify.v2
+//       .services(TWILIO_VERIFY_SERVICE_SID)
+//       .verifications.create({
+//         to: phoneNumber,
+//         channel: "sms",
+//       });
+
+//     res.status(200).json({
+//       message: "OTP sent successfully",
+//       verificationSid: verification.sid,
+//       status: verification.status,
+//     });
+//   } catch (error) {
+//     console.error("OTP Send Error:", error);
+//     res
+//       .status(500)
+//       .json({ message: "Failed to send OTP", error: error.message });
+//   }
+// };
+
+const otpStore = new Map(); // In-memory store. Use DB/Redis in production.
+
 const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
+    if (!phone) return res.status(400).json({ message: "Phone is required" });
 
-    if (!phone) {
-      return res.status(400).json({ message: "Phone number is required" });
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    otpStore.set(phone, otp); // Store temporarily
+
+    const message = `Your OTP is ${otp}`;
+
+    const response = await axios.post(
+      "https://www.fast2sms.com/dev/bulkV2",
+      {
+        variables_values: otp,
+        route: "otp",
+        numbers: phone,
+      },
+      {
+        headers: {
+          authorization: process.env.FAST2SMS_API_KEY,
+        },
+      }
+    );
+
+    if (response.data.return) {
+      res.status(200).json({ message: "OTP sent successfully", phone });
+    } else {
+      res.status(500).json({ message: "Failed to send OTP" });
     }
-
-    const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
-
-    const { TWILIO_VERIFY_SERVICE_SID } = process.env;
-
-    if (!TWILIO_VERIFY_SERVICE_SID) {
-      return res
-        .status(500)
-        .json({ message: "Twilio Verify Service SID is not configured" });
-    }
-
-    const verification = await twilioClient.verify.v2
-      .services(TWILIO_VERIFY_SERVICE_SID)
-      .verifications.create({
-        to: phoneNumber,
-        channel: "sms",
-      });
-
-    res.status(200).json({
-      message: "OTP sent successfully",
-      verificationSid: verification.sid,
-      status: verification.status,
-    });
   } catch (error) {
-    console.error("OTP Send Error:", error);
+    console.error("Send OTP Error:", error.response?.data || error.message);
     res
       .status(500)
       .json({ message: "Failed to send OTP", error: error.message });
   }
 };
 
+// const verifyOTP = async (req, res) => {
+//   try {
+//     const { phone, otp } = req.body;
+
+//     if (!phone || !otp) {
+//       return res.status(400).json({ message: "Phone and OTP are required" });
+//     }
+
+//     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
+//     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
+
+//     if (!TWILIO_VERIFY_SERVICE_SID) {
+//       return res.status(500).json({
+//         message: "Twilio Verify Service SID not found in environment",
+//       });
+//     }
+
+//     const verificationCheck = await twilioClient.verify.v2
+//       .services(TWILIO_VERIFY_SERVICE_SID)
+//       .verificationChecks.create({
+//         to: phoneNumber,
+//         code: otp,
+//       });
+
+//     if (verificationCheck.status !== "approved") {
+//       return res.status(400).json({ message: "Invalid OTP" });
+//     }
+
+//     let user = await User.findOne({ phone: phoneNumber });
+//     if (!user) {
+//       const placeholderEmail = `user_${phoneNumber.replace(
+//         "+",
+//         ""
+//       )}@example.com`;
+//       user = new User({
+//         phone: phoneNumber,
+//         isVerified: true,
+//         email: placeholderEmail,
+//         otpVerification: { verified: true, lastVerifiedAt: new Date() },
+//       });
+//       await user.save();
+//     } else {
+//       user.isVerified = true;
+//       user.otpVerification = { verified: true, lastVerifiedAt: new Date() };
+//       await user.save();
+//     }
+
+//     const token = generateToken(user._id);
+
+//     res.status(200).json({
+//       message: "OTP verified successfully",
+//       user: {
+//         _id: user._id,
+//         phone: user.phone,
+//         isVerified: user.isVerified,
+//         otpVerification: user.otpVerification,
+//       },
+//       token,
+//     });
+//   } catch (error) {
+//     console.error("OTP Verification Error:", error);
+//     res
+//       .status(500)
+//       .json({ message: "OTP verification failed", error: error.message });
+//   }
+// };
+
 const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
+    if (!phone || !otp)
+      return res.status(400).json({ message: "Phone and OTP required" });
 
-    if (!phone || !otp) {
-      return res.status(400).json({ message: "Phone and OTP are required" });
+    const storedOtp = otpStore.get(phone);
+    if (parseInt(otp) !== storedOtp) {
+      return res.status(400).json({ message: "Invalid or expired OTP" });
     }
 
-    const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
-    const { TWILIO_VERIFY_SERVICE_SID } = process.env;
+    otpStore.delete(phone); // Remove after successful verification
 
-    if (!TWILIO_VERIFY_SERVICE_SID) {
-      return res
-        .status(500)
-        .json({
-          message: "Twilio Verify Service SID not found in environment",
-        });
-    }
-
-    const verificationCheck = await twilioClient.verify.v2
-      .services(TWILIO_VERIFY_SERVICE_SID)
-      .verificationChecks.create({
-        to: phoneNumber,
-        code: otp,
-      });
-
-    if (verificationCheck.status !== "approved") {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
-
-    let user = await User.findOne({ phone: phoneNumber });
+    let user = await User.findOne({ phone });
     if (!user) {
-      const placeholderEmail = `user_${phoneNumber.replace(
-        "+",
-        ""
-      )}@example.com`;
       user = new User({
-        phone: phoneNumber,
+        phone,
         isVerified: true,
-        email: placeholderEmail,
+        email: `user_${phone}@example.com`,
         otpVerification: { verified: true, lastVerifiedAt: new Date() },
       });
       await user.save();
@@ -182,12 +271,13 @@ const verifyOTP = async (req, res) => {
       token,
     });
   } catch (error) {
-    console.error("OTP Verification Error:", error);
+    console.error("Verify OTP Error:", error);
     res
       .status(500)
       .json({ message: "OTP verification failed", error: error.message });
   }
 };
+
 const adminSignup = async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -478,8 +568,6 @@ const changePassword = async (req, res) => {
       .status(500)
       .json({ message: "Failed to change password", error: error.message });
   }
-
-  
 };
 
 module.exports = {
