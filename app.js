@@ -24,6 +24,7 @@ const RelatedRoutes = require("./routes/Related.routes");
 const TestimonialRoutes = require("./routes/Testimonial.routes");
 const crouselRoutes = require("./routes/Crousel.routes");
 const GoldPriceRoutes = require("./routes/Price.routes");
+const WishlistRoutes = require("./routes/Wishlist.routes");
 
 require("dotenv").config();
 
@@ -79,6 +80,7 @@ app.use("/testimonial", TestimonialRoutes);
 app.use("/best", BestRoutes);
 app.use("/feature", FeatureRoutes);
 app.use("/Everyday", EveryRoutes);
+app.use("/wishlist", WishlistRoutes);
 
 // Middleware for handling 404 errors
 app.use((req, res, next) => {
