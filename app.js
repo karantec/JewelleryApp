@@ -86,6 +86,10 @@ app.use("/wishlist", WishlistRoutes);
 app.use((req, res, next) => {
   next(createError.NotFound());
 });
+
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
 require("./services/priceUpdater");
 // Error handling middleware
 app.use((err, req, res, next) => {
