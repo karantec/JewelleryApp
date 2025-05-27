@@ -20,16 +20,249 @@ const generateAdminToken = (adminId) => {
 };
 
 FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
-// const twilio = require("twilio");
 
-// // Load Twilio credentials from environment variables
-// const TWILIO_ACCOUNT_SID = process.env.TWILIO_ACCOUNT_SID;
-// const TWILIO_AUTH_TOKEN = process.env.TWILIO_AUTH_TOKEN;
-// const TWILIO_PHONE_NUMBER = process.env.TWILIO_PHONE_NUMBER;
-// const TWILIO_VERIFY_SERVICE_SID = process.env.TWILIO_VERIFY_SERVICE_SID;
+const googleSignIn = async (req, res) => {
+  try {
+    const { idToken } = req.body;
 
-// // Initialize Twilio client
-// const twilioClient = twilio(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN);
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Google ID token is required",
+      });
+    }
+
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, name, picture, phone_number, email_verified } =
+      decodedToken;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required for Google sign-in",
+      });
+    }
+
+    // Check if user already exists by email or Google ID
+    let user = await User.findOne({
+      $or: [{ email: email }, { googleId: uid }],
+    });
+
+    let isNewUser = false;
+
+    if (user) {
+      // Existing user - update Google info and login
+      const updateFields = {};
+
+      if (!user.googleId) updateFields.googleId = uid;
+      if (!user.profileImage && picture) updateFields.profileImage = picture;
+      if (!user.isVerified && email_verified) updateFields.isVerified = true;
+      if (!user.name && name) updateFields.name = name;
+      if (!user.phone && phone_number) updateFields.phone = phone_number;
+      if (!user.authProvider) updateFields.authProvider = "google";
+
+      // Update last login
+      updateFields.lastLoginAt = new Date();
+
+      if (Object.keys(updateFields).length > 0) {
+        user = await User.findByIdAndUpdate(user._id, updateFields, {
+          new: true,
+        }).select("-password");
+      }
+    } else {
+      // New user - create account automatically
+      isNewUser = true;
+
+      user = new User({
+        name: name || email.split("@")[0],
+        email: email,
+        googleId: uid,
+        profileImage: picture || "",
+        phone: phone_number || "",
+        isVerified: email_verified || true,
+        addresses: [],
+        authProvider: "google",
+        lastLoginAt: new Date(),
+        // No password field for Google users
+      });
+
+      await user.save();
+    }
+
+    // Generate JWT token
+    const token = generateToken(user._id);
+
+    // Return success response
+    res.status(200).json({
+      success: true,
+      message: isNewUser
+        ? "Account created and signed in successfully"
+        : "Signed in successfully",
+      isNewUser,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || "",
+        profileImage: user.profileImage || "",
+        addresses: user.addresses || [],
+        isVerified: user.isVerified,
+        authProvider: "google",
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error("Google Sign-In Error:", error);
+
+    // Handle specific Firebase auth errors
+    if (error.code === "auth/id-token-expired") {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please sign in again.",
+      });
+    }
+
+    if (error.code === "auth/invalid-id-token") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication. Please try again.",
+      });
+    }
+
+    if (error.code === "auth/project-not-found") {
+      return res.status(500).json({
+        success: false,
+        message: "Authentication service not configured properly.",
+      });
+    }
+
+    // Generic error response
+    res.status(500).json({
+      success: false,
+      message: "Sign-in failed. Please try again.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
+
+const linkGoogleAccount = async (req, res) => {
+  try {
+    const userId = req.user._id; // From auth middleware
+    const { idToken } = req.body;
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Firebase ID token is required",
+      });
+    }
+
+    // Verify the Firebase ID token
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const { uid, email, picture } = decodedToken;
+
+    // Check if Google account is already linked to another user
+    const existingGoogleUser = await User.findOne({ googleId: uid });
+    if (
+      existingGoogleUser &&
+      existingGoogleUser._id.toString() !== userId.toString()
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "This Google account is already linked to another user",
+      });
+    }
+
+    // Update current user with Google info
+    const user = await User.findByIdAndUpdate(
+      userId,
+      {
+        googleId: uid,
+        profileImage: picture || user.profileImage,
+      },
+      { new: true }
+    ).select("-password");
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Google account linked successfully",
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone,
+        profileImage: user.profileImage,
+        addresses: user.addresses,
+        isVerified: user.isVerified,
+        googleId: user.googleId,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error("Link Google Account Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to link Google account",
+      error: error.message,
+    });
+  }
+};
+const unlinkGoogleAccount = async (req, res) => {
+  try {
+    const userId = req.user._id;
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    if (!user.googleId) {
+      return res.status(400).json({
+        success: false,
+        message: "No Google account linked to this user",
+      });
+    }
+
+    // Check if user has password set (to ensure they can still login)
+    if (!user.password && user.authProvider === "google") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot unlink Google account. Please set a password first to maintain account access.",
+      });
+    }
+
+    // Remove Google ID
+    user.googleId = undefined;
+    await user.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Google account unlinked successfully",
+    });
+  } catch (error) {
+    console.error("Unlink Google Account Error:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to unlink Google account",
+      error: error.message,
+    });
+  }
+};
 
 // User Signup
 const userSignup = async (req, res) => {
@@ -580,6 +813,7 @@ module.exports = {
   changePassword,
   adminSignup,
   adminLogin,
+  googleSignIn,
   getUserProfile,
   updateUserProfile,
 };
