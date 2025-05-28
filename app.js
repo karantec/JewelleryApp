@@ -2,6 +2,7 @@ const express = require("express");
 const createError = require("http-errors");
 const morgan = require("morgan");
 const cors = require("cors");
+const listEndpoints = require("express-list-endpoints");
 const connectDB = require("./config/db");
 const UserRoutes = require("./routes/user.routes");
 const GoldRoutes = require("./routes/product.routes");
@@ -32,7 +33,7 @@ const app = express();
 app.use(express.json());
 
 // Parse URL-encoded data (for forms)
-
+console.log(listEndpoints(app));
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 
@@ -88,7 +89,13 @@ app.use((req, res, next) => {
 });
 
 app.get("/health", (req, res) => {
+  console.log("Health check hit"); // Add this
   res.status(200).send("OK");
+});
+
+app.get("/", (req, res) => {
+  console.log("Root route hit"); // Add this
+  res.send({ message: "Awesome it works 🐻" });
 });
 require("./services/priceUpdater");
 // Error handling middleware
@@ -127,7 +134,11 @@ const listRoutes = (app, baseUrl) => {
   });
 };
 
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT;
+if (!PORT) {
+  console.error("❌ PORT not set. Azure App Service needs process.env.PORT.");
+  process.exit(1);
+}
 const BASE_URL = `http://localhost:${PORT}`;
 
 app.listen(PORT, () => {
