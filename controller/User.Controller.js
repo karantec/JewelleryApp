@@ -483,6 +483,15 @@ const verifyOTP = async (req, res) => {
         isVerified: true,
         email: `user_${phone}@example.com`,
         otpVerification: { verified: true, lastVerifiedAt: new Date() },
+        addresses: [
+          {
+            primaryPhone: phone,
+            zipcode: "000000",
+            state: "Unknown",
+            city: "Unknown",
+            addressLine: "Temporary Address",
+          },
+        ],
       });
       await user.save();
     } else {

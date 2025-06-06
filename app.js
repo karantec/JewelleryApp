@@ -63,7 +63,7 @@ app.use(
 app.use("/auth", UserRoutes);
 app.use("/gold", GoldRoutes);
 app.use("/about", AboutRoutes);
-app.use("/order", OrderRoutes);
+// app.use("/order", OrderRoutes);
 app.use("/crousel", crouselRoutes);
 app.use("/address", addressRoutes);
 app.use("/support", SupportRoutes);
