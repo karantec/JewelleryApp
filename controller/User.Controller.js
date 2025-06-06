@@ -32,24 +32,6 @@ const googleSignIn = async (req, res) => {
       });
     }
 
-    // async function verifyFirebaseToken(idToken) {
-    //   try {
-    //     const decodedToken = await admin.auth().verifyIdToken(idToken);
-    //     console.log("Decoded Token:", decodedToken);
-
-    //     // Access details
-    //     const uid = decodedToken.uid;
-    //     const email = decodedToken.email;
-    //     const name = decodedToken.name;
-    //     const picture = decodedToken.picture;
-
-    //     return { uid, email, name, picture, all: decodedToken };
-    //   } catch (error) {
-    //     console.error("Error verifying Firebase ID token:", error);
-    //     return null;
-    //   }
-    // }
-
     // Verify the Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
     const { uid, email, name, picture, phone_number, email_verified } =
