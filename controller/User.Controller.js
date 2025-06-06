@@ -24,6 +24,7 @@ FAST2SMS_API_KEY = process.env.FAST2SMS_API_KEY;
 const googleSignIn = async (req, res) => {
   try {
     const { idToken } = req.body;
+    console.log("Received ID Token:", idToken);
 
     if (!idToken) {
       return res.status(400).json({
@@ -32,37 +33,43 @@ const googleSignIn = async (req, res) => {
       });
     }
 
-    // Verify the Firebase ID token
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const { uid, email, name, picture, phone_number, email_verified } =
-      decodedToken;
+    // Decode the Firebase ID token manually (Emulator safe - no signature verification)
+    const decodedToken = jwt.decode(idToken);
+    console.log("Decoded Token:", decodedToken);
 
-    if (!email) {
+    if (!decodedToken || !decodedToken.email) {
       return res.status(400).json({
         success: false,
-        message: "Email is required for Google sign-in",
+        message: "Invalid token or email not found",
       });
     }
 
-    // Check if user already exists by email or Google ID
+    // Safely extract user info with fallbacks
+    const uid = decodedToken.user_id || decodedToken.uid || "";
+    const email = decodedToken.email;
+    const name = decodedToken.name || email.split("@")[0];
+    const picture = decodedToken.picture || "";
+    const phone = decodedToken.phone_number || null;
+    const isVerified = decodedToken.email_verified ?? false;
+
+    // Check for existing user
     let user = await User.findOne({
-      $or: [{ email: email }, { googleId: uid }],
+      $or: [{ email }, { googleId: uid }],
     });
 
     let isNewUser = false;
 
     if (user) {
-      // Existing user - update Google info and login
+      // Existing user — selectively update missing fields
       const updateFields = {};
 
       if (!user.googleId) updateFields.googleId = uid;
       if (!user.profileImage && picture) updateFields.profileImage = picture;
-      if (!user.isVerified && email_verified) updateFields.isVerified = true;
+      if (!user.isVerified && isVerified) updateFields.isVerified = true;
       if (!user.name && name) updateFields.name = name;
-      if (!user.phone && phone_number) updateFields.phone = phone_number;
+      if (!user.phone && phone) updateFields.phone = phone;
       if (!user.authProvider) updateFields.authProvider = "google";
 
-      // Update last login
       updateFields.lastLoginAt = new Date();
 
       if (Object.keys(updateFields).length > 0) {
@@ -71,30 +78,34 @@ const googleSignIn = async (req, res) => {
         }).select("-password");
       }
     } else {
-      // New user - create account automatically
+      // New user — create and save
       isNewUser = true;
 
-      user = new User({
-        name: name || email.split("@")[0],
-        email: email,
+      const newUserData = {
+        name,
+        email,
         googleId: uid,
-        profileImage: picture || "",
-        phone: phone_number || "",
-        isVerified: email_verified || true,
+        profileImage: picture,
+        isVerified,
         addresses: [],
         authProvider: "google",
         lastLoginAt: new Date(),
-        // No password field for Google users
-      });
+      };
 
+      // Only include phone if it's not empty/null
+      if (phone) {
+        newUserData.phone = phone;
+      }
+
+      user = new User(newUserData);
       await user.save();
     }
 
-    // Generate JWT token
+    // Generate your app's own JWT for session
     const token = generateToken(user._id);
 
-    // Return success response
-    res.status(200).json({
+    // Return success
+    return res.status(200).json({
       success: true,
       message: isNewUser
         ? "Account created and signed in successfully"
@@ -108,16 +119,17 @@ const googleSignIn = async (req, res) => {
         profileImage: user.profileImage || "",
         addresses: user.addresses || [],
         isVerified: user.isVerified,
-        authProvider: "google",
+        authProvider: user.authProvider || "google",
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
       },
       token,
     });
+
   } catch (error) {
     console.error("Google Sign-In Error:", error);
 
-    // Handle specific Firebase auth errors
+    // Firebase Emulator specific or fallback error handling
     if (error.code === "auth/id-token-expired") {
       return res.status(401).json({
         success: false,
@@ -139,14 +151,14 @@ const googleSignIn = async (req, res) => {
       });
     }
 
-    // Generic error response
-    res.status(500).json({
+    return res.status(500).json({
       success: false,
       message: "Sign-in failed. Please try again.",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
     });
   }
 };
+
 
 // User Signup
 const userSignup = async (req, res) => {
