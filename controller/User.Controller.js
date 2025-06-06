@@ -2,7 +2,7 @@ require("dotenv").config();
 const mongoose = require("mongoose");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
-
+const admin = require("../config/firebaseAdmin"); // Firebase Admin SDK
 const axios = require("axios");
 const User = require("../models/User.model");
 const Admin = require("../models/Admin.model");
@@ -31,6 +31,24 @@ const googleSignIn = async (req, res) => {
         message: "Google ID token is required",
       });
     }
+
+    // async function verifyFirebaseToken(idToken) {
+    //   try {
+    //     const decodedToken = await admin.auth().verifyIdToken(idToken);
+    //     console.log("Decoded Token:", decodedToken);
+
+    //     // Access details
+    //     const uid = decodedToken.uid;
+    //     const email = decodedToken.email;
+    //     const name = decodedToken.name;
+    //     const picture = decodedToken.picture;
+
+    //     return { uid, email, name, picture, all: decodedToken };
+    //   } catch (error) {
+    //     console.error("Error verifying Firebase ID token:", error);
+    //     return null;
+    //   }
+    // }
 
     // Verify the Firebase ID token
     const decodedToken = await admin.auth().verifyIdToken(idToken);
@@ -144,122 +162,6 @@ const googleSignIn = async (req, res) => {
       success: false,
       message: "Sign-in failed. Please try again.",
       error: process.env.NODE_ENV === "development" ? error.message : undefined,
-    });
-  }
-};
-
-const linkGoogleAccount = async (req, res) => {
-  try {
-    const userId = req.user._id; // From auth middleware
-    const { idToken } = req.body;
-
-    if (!idToken) {
-      return res.status(400).json({
-        success: false,
-        message: "Firebase ID token is required",
-      });
-    }
-
-    // Verify the Firebase ID token
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
-    const { uid, email, picture } = decodedToken;
-
-    // Check if Google account is already linked to another user
-    const existingGoogleUser = await User.findOne({ googleId: uid });
-    if (
-      existingGoogleUser &&
-      existingGoogleUser._id.toString() !== userId.toString()
-    ) {
-      return res.status(400).json({
-        success: false,
-        message: "This Google account is already linked to another user",
-      });
-    }
-
-    // Update current user with Google info
-    const user = await User.findByIdAndUpdate(
-      userId,
-      {
-        googleId: uid,
-        profileImage: picture || user.profileImage,
-      },
-      { new: true }
-    ).select("-password");
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    res.status(200).json({
-      success: true,
-      message: "Google account linked successfully",
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        phone: user.phone,
-        profileImage: user.profileImage,
-        addresses: user.addresses,
-        isVerified: user.isVerified,
-        googleId: user.googleId,
-        createdAt: user.createdAt,
-        updatedAt: user.updatedAt,
-      },
-    });
-  } catch (error) {
-    console.error("Link Google Account Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to link Google account",
-      error: error.message,
-    });
-  }
-};
-const unlinkGoogleAccount = async (req, res) => {
-  try {
-    const userId = req.user._id;
-
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: "User not found",
-      });
-    }
-
-    if (!user.googleId) {
-      return res.status(400).json({
-        success: false,
-        message: "No Google account linked to this user",
-      });
-    }
-
-    // Check if user has password set (to ensure they can still login)
-    if (!user.password && user.authProvider === "google") {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Cannot unlink Google account. Please set a password first to maintain account access.",
-      });
-    }
-
-    // Remove Google ID
-    user.googleId = undefined;
-    await user.save();
-
-    res.status(200).json({
-      success: true,
-      message: "Google account unlinked successfully",
-    });
-  } catch (error) {
-    console.error("Unlink Google Account Error:", error);
-    res.status(500).json({
-      success: false,
-      message: "Failed to unlink Google account",
-      error: error.message,
     });
   }
 };

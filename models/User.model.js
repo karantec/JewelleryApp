@@ -10,22 +10,22 @@ const addressSchema = new mongoose.Schema(
     },
     addressLine: {
       type: String,
-      required: [true, "Address Line is required"],
+      // required: [true, "Address Line is required"],
       trim: true,
     },
     city: {
       type: String,
-      required: [true, "City is required"],
+      // required: [true, "City is required"],
       trim: true,
     },
     state: {
       type: String,
-      required: [true, "State is required"],
+      // required: [true, "State is required"],
       trim: true,
     },
     zipcode: {
       type: String,
-      required: [true, "Zipcode is required"],
+      // required: [true, "Zipcode is required"],
       trim: true,
       validate: {
         validator: function (v) {
@@ -36,7 +36,7 @@ const addressSchema = new mongoose.Schema(
     },
     country: {
       type: String,
-      required: [true, "Country is required"],
+      // required: [true, "Country is required"],
       trim: true,
       default: "India",
     },
@@ -46,7 +46,7 @@ const addressSchema = new mongoose.Schema(
     },
     primaryPhone: {
       type: String,
-      required: [true, "Primary Phone is required"],
+      // required: [true, "Primary Phone is required"],
       trim: true,
       validate: {
         validator: function (v) {

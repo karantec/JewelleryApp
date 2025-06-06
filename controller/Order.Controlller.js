@@ -1,135 +1,169 @@
-// const Razorpay = require("razorpay");
-// const crypto = require("crypto");
-// const Order = require("../models/Order.model");
-// const Cart = require("../models/Cart.model");
-// const GoldProduct = require("../models/GoldProduct.model");
+const Order = require("../models/Order.model");
+const Cart = require("../models/Cart.model");
+const GoldProduct = require("../models/GoldProduct.model");
 
-// // Initialize Razorpay
-// const razorpay = new Razorpay({
-//   key_id: process.env.RAZORPAY_KEY_ID,
-//   key_secret: process.env.RAZORPAY_KEY_SECRET,
-// });
+// 🔹 Create Order with Cashfree Payment Gateway
+const createOrder = async (req, res) => {
+  try {
+    const { _id: userId } = req.user || {};
+    const { shippingAddress, paymentMethod, cartId } = req.body;
 
-// // 🔹 Create Order
-// const createOrder = async (req, res) => {
-//   try {
-//     const { _id: userId } = req.user || {};
-//     const { shippingAddress, paymentMethod, cartId } = req.body;
+    if (!userId) {
+      return res.status(403).json({ message: "User authentication failed" });
+    }
 
-//     if (!userId) {
-//       return res.status(403).json({ message: "User authentication failed" });
-//     }
+    if (!cartId) {
+      return res
+        .status(400)
+        .json({ message: "Cart ID and User ID are required" });
+    }
 
-//     if (!cartId) {
-//       return res
-//         .status(400)
-//         .json({ message: "Cart ID and User ID are required" });
-//     }
+    const cart = await Cart.findOne({ _id: cartId }).populate(
+      "items.productId"
+    );
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ message: "Cart is empty" });
+    }
 
-//     const cart = await Cart.findOne({ _id: cartId }).populate(
-//       "items.productId"
-//     );
-//     if (!cart || cart.items.length === 0) {
-//       return res.status(400).json({ message: "Cart is empty" });
-//     }
+    let totalAmount = 0;
+    const orderItems = [];
 
-//     let totalAmount = 0;
-//     const orderItems = [];
+    for (const item of cart.items) {
+      const product = item.productId;
 
-//     for (const item of cart.items) {
-//       const product = item.productId;
+      if (!product) {
+        return res.status(400).json({
+          message: `Invalid product: ${item?.productId || "unknown"}`,
+        });
+      }
 
-//       if (!product) {
-//         return res.status(400).json({
-//           message: `Invalid product: ${item?.productId || "unknown"}`,
-//         });
-//       }
+      const priceDetails = await product.getCurrentPrice();
+      const latestBasePrice = parseFloat(priceDetails.currentTotalPrice);
+      if (isNaN(latestBasePrice)) {
+        return res
+          .status(400)
+          .json({ message: "Unable to get latest product price" });
+      }
 
-//       const priceDetails = await product.getCurrentPrice();
-//       const latestBasePrice = parseFloat(priceDetails.currentTotalPrice);
-//       if (isNaN(latestBasePrice)) {
-//         return res
-//           .status(400)
-//           .json({ message: "Unable to get latest product price" });
-//       }
+      const priceWithGST = +(latestBasePrice * 1.03).toFixed(2);
+      const totalItemPrice = +(priceWithGST * item.quantity).toFixed(2);
+      totalAmount += totalItemPrice;
 
-//       const priceWithGST = +(latestBasePrice * 1.03).toFixed(2);
-//       const totalItemPrice = +(priceWithGST * item.quantity).toFixed(2);
-//       totalAmount += totalItemPrice;
+      orderItems.push({
+        productId: product._id,
+        quantity: item.quantity,
+        priceAtTimeOfAdding: priceWithGST,
+        productSnapshot: {
+          name: product.name,
+          description: product.description,
+          category: product.category,
+          image: product.image,
+        },
+      });
+    }
 
-//       orderItems.push({
-//         productId: product._id,
-//         quantity: item.quantity,
-//         priceAtTimeOfAdding: priceWithGST,
-//         productSnapshot: {
-//           name: product.name,
-//           description: product.description,
-//           category: product.category,
-//           image: product.image,
-//         },
-//       });
-//     }
+    const newOrderData = {
+      userId,
+      cartId: cart._id,
+      items: orderItems,
+      totalAmount,
+      shippingAddress,
+      paymentMethod,
+      paymentStatus: paymentMethod === "COD" ? "Pending" : "Pending",
+      orderStatus: paymentMethod === "COD" ? "ORDER PLACED" : "Created",
+      orderDate: new Date(),
+    };
 
-//     const newOrderData = {
-//       userId,
-//       cartId: cart._id,
-//       items: orderItems,
-//       totalAmount,
-//       shippingAddress,
-//       paymentMethod,
-//       paymentStatus: paymentMethod === "COD" ? "Pending" : "Pending",
-//       orderStatus: paymentMethod === "COD" ? "ORDER PLACED" : "Created",
-//       orderDate: new Date(),
-//     };
+    // ✅ Cashfree payment method with max limit check
+    if (paymentMethod === "ONLINE") {
+      const MAX_CASHFREE_AMOUNT = 1000000; // ₹10,00,000 (Cashfree's typical limit)
 
-//     // ✅ Razorpay payment method with max limit check
-//     if (paymentMethod === "ONLINE") {
-//       const amountInPaisa = Math.round(totalAmount * 100);
-//       const MAX_RAZORPAY_AMOUNT = 50000000 * 100; // ₹5,00,000 in paisa
+      if (totalAmount > MAX_CASHFREE_AMOUNT) {
+        return res.status(400).json({
+          message:
+            "Order amount exceeds Cashfree's ₹10,00,000 limit. Please split your cart.",
+        });
+      }
 
-//       if (amountInPaisa > MAX_RAZORPAY_AMOUNT) {
-//         return res.status(400).json({
-//           message:
-//             "Order amount exceeds Razorpay’s ₹5,00,000 limit. Please split your cart.",
-//         });
-//       }
+      // Generate unique order ID for Cashfree
+      const cashfreeOrderId = `order_${Date.now()}_${cart._id
+        .toString()
+        .slice(-6)}`;
 
-//       const razorpayOrder = await razorpay.orders.create({
-//         amount: amountInPaisa,
-//         currency: "INR",
-//         receipt: `order_rcptid_${cart._id}`,
-//         payment_capture: 1,
-//       });
+      // Cashfree order creation payload
+      const cashfreeOrderPayload = {
+        order_id: cashfreeOrderId,
+        order_amount: totalAmount,
+        order_currency: "INR",
+        order_note: `Order for cart ${cart._id}`,
+        customer_details: {
+          customer_id: userId.toString(),
+          customer_name: shippingAddress?.fullName || "Customer",
+          customer_email: req.user?.email || "customer@example.com",
+          customer_phone: shippingAddress?.phoneNumber || "9999999999",
+        },
+        order_meta: {
+          return_url: `${process.env.FRONTEND_URL}/payment/success`,
+          notify_url: `${process.env.BACKEND_URL}/api/payment/cashfree/webhook`,
+        },
+        order_tags: {
+          cart_id: cart._id.toString(),
+          user_id: userId.toString(),
+        },
+      };
 
-//       newOrderData.razorpay = {
-//         orderId: razorpayOrder.id,
-//         orderDetails: razorpayOrder,
-//       };
-//     }
+      try {
+        // Create Cashfree order using your Cashfree instance
+        const cashfreeOrder = await cashfree.PGCreateOrder(
+          "2023-08-01",
+          cashfreeOrderPayload
+        );
 
-//     const newOrder = new Order(newOrderData);
-//     await newOrder.save();
+        if (cashfreeOrder && cashfreeOrder.data) {
+          newOrderData.cashfree = {
+            orderId: cashfreeOrderId,
+            cfOrderId: cashfreeOrder.data.cf_order_id,
+            orderDetails: cashfreeOrder.data,
+            paymentSessionId: cashfreeOrder.data.payment_session_id,
+          };
+        } else {
+          throw new Error("Failed to create Cashfree order");
+        }
+      } catch (cashfreeError) {
+        console.error("🔥 Cashfree order creation error:", cashfreeError);
+        return res.status(500).json({
+          message: "Failed to create payment order",
+          error: cashfreeError.message,
+        });
+      }
+    }
 
-//     for (const item of cart.items) {
-//       await GoldProduct.findByIdAndUpdate(item.productId._id, {
-//         isAvailable: false,
-//       });
-//     }
+    const newOrder = new Order(newOrderData);
+    await newOrder.save();
 
-//     await Cart.findByIdAndUpdate(cartId, { $set: { items: [] } });
+    // Mark products as unavailable
+    for (const item of cart.items) {
+      await GoldProduct.findByIdAndUpdate(item.productId._id, {
+        isAvailable: false,
+      });
+    }
 
-//     res.status(201).json({
-//       message: "Order created successfully",
-//       order: newOrder,
-//       razorpayOrder: newOrder.razorpay?.orderDetails || null,
-//     });
-//   } catch (error) {
-//     console.error("🔥 Error creating order:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Internal server error", error: error.message });
-//   }
-// };
+    // Clear the cart
+    await Cart.findByIdAndUpdate(cartId, { $set: { items: [] } });
+
+    res.status(201).json({
+      message: "Order created successfully",
+      order: newOrder,
+      cashfreeOrder: newOrder.cashfree?.orderDetails || null,
+      paymentSessionId: newOrder.cashfree?.paymentSessionId || null,
+    });
+  } catch (error) {
+    console.error("🔥 Error creating order:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error", error: error.message });
+  }
+};
 
 // const verifyPayment = async (req, res) => {
 //   try {
@@ -242,10 +276,10 @@
 //   }
 // };
 
-// module.exports = {
-//   createOrder,
+module.exports = {
+  createOrder,
+};
 //   getOrdersByUser,
 //   verifyPayment,
 //   getOrderById,
 //   getAllOrders,
-// };
