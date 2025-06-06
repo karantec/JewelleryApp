@@ -5,4 +5,4 @@
 node_modules/
 
 # .gitignore
-config/service.json
+# config/service.json
