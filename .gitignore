@@ -4,5 +4,3 @@
 # Ignore node modules
 node_modules/
 
-# .gitignore
-# config/service.json
