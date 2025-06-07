@@ -1,8 +1,184 @@
 const Order = require("../models/Order.model");
 const Cart = require("../models/Cart.model");
 const GoldProduct = require("../models/GoldProduct.model");
+const crypto = require("crypto");
+const https = require("https");
+const dns = require("dns");
 
-// 🔹 Create Order with Cashfree Payment Gateway
+// Initialize Cashfree SDK with environment variables
+const { Cashfree } = require("cashfree-pg");
+
+// Network diagnostic function
+const diagnosticNetworkConnectivity = async () => {
+  console.log("🔍 Running network diagnostics...");
+
+  // 1. Check DNS resolution
+  try {
+    const addresses = await dns.promises.lookup("api.cashfree.com");
+    console.log("✅ DNS Resolution successful:", addresses);
+  } catch (dnsError) {
+    console.error("❌ DNS Resolution failed:", dnsError.message);
+    return false;
+  }
+
+  // 2. Check basic connectivity
+  return new Promise((resolve) => {
+    const req = https.request(
+      {
+        hostname: "api.cashfree.com",
+        port: 443,
+        path: "/pg/orders",
+        method: "GET",
+        timeout: 10000,
+        headers: {
+          "User-Agent": "Node.js-Diagnostic",
+        },
+      },
+      (res) => {
+        console.log("✅ HTTPS Connection successful, Status:", res.statusCode);
+        resolve(true);
+      }
+    );
+
+    req.on("error", (error) => {
+      console.error("❌ HTTPS Connection failed:", error.message);
+      resolve(false);
+    });
+
+    req.on("timeout", () => {
+      console.error("❌ Connection timeout");
+      req.destroy();
+      resolve(false);
+    });
+
+    req.end();
+  });
+};
+
+// Alternative Cashfree configuration with custom agent
+const setupCashfreeWithCustomAgent = () => {
+  try {
+    // Configure Cashfree with custom HTTPS agent
+    Cashfree.XClientId = process.env.CASHFREE_APP_ID;
+    Cashfree.XClientSecret = process.env.CASHFREE_SECRET_KEY;
+
+    // Use sandbox for testing, production for live
+    if (process.env.CASHFREE_ENVIRONMENT === "PRODUCTION") {
+      Cashfree.XEnvironment = Cashfree.Environment.PRODUCTION;
+    } else {
+      Cashfree.XEnvironment = Cashfree.Environment.SANDBOX;
+    }
+
+    console.log("✅ Cashfree SDK configured");
+    return true;
+  } catch (error) {
+    console.error("❌ Cashfree SDK configuration failed:", error.message);
+    return false;
+  }
+};
+
+// Fallback HTTP client for direct API calls
+const createCashfreeOrderDirect = async (orderData) => {
+  const baseUrl =
+    process.env.CASHFREE_ENVIRONMENT === "PRODUCTION"
+      ? "https://api.cashfree.com"
+      : "https://sandbox.cashfree.com";
+
+  const url = `${baseUrl}/pg/orders`;
+
+  const headers = {
+    Accept: "application/json",
+    "Content-Type": "application/json",
+    "x-api-version": "2023-08-01",
+    "x-client-id": process.env.CASHFREE_APP_ID,
+    "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+  };
+
+  console.log("🔄 Making direct API call to:", url);
+
+  try {
+    // Using fetch if available (Node 18+) or can use axios/node-fetch
+    const response = await fetch(url, {
+      method: "POST",
+      headers: headers,
+      body: JSON.stringify(orderData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
+    }
+
+    const result = await response.json();
+    console.log("✅ Direct API call successful");
+    return result;
+  } catch (fetchError) {
+    console.error("❌ Direct API call failed:", fetchError.message);
+
+    // Fallback using https module
+    return new Promise((resolve, reject) => {
+      const postData = JSON.stringify(orderData);
+
+      const options = {
+        hostname:
+          process.env.CASHFREE_ENVIRONMENT === "PRODUCTION"
+            ? "api.cashfree.com"
+            : "sandbox.cashfree.com",
+        port: 443,
+        path: "/pg/orders",
+        method: "POST",
+        headers: {
+          ...headers,
+          "Content-Length": Buffer.byteLength(postData),
+        },
+        timeout: 30000, // 30 seconds timeout
+      };
+
+      const req = https.request(options, (res) => {
+        let data = "";
+
+        res.on("data", (chunk) => {
+          data += chunk;
+        });
+
+        res.on("end", () => {
+          try {
+            const result = JSON.parse(data);
+            if (res.statusCode >= 200 && res.statusCode < 300) {
+              console.log("✅ Fallback API call successful");
+              resolve(result);
+            } else {
+              console.error("❌ API returned error:", res.statusCode, result);
+              reject(
+                new Error(
+                  `API Error ${res.statusCode}: ${JSON.stringify(result)}`
+                )
+              );
+            }
+          } catch (parseError) {
+            console.error("❌ Failed to parse response:", data);
+            reject(new Error(`Parse error: ${parseError.message}`));
+          }
+        });
+      });
+
+      req.on("error", (error) => {
+        console.error("❌ Fallback request failed:", error.message);
+        reject(error);
+      });
+
+      req.on("timeout", () => {
+        console.error("❌ Fallback request timeout");
+        req.destroy();
+        reject(new Error("Request timeout"));
+      });
+
+      req.write(postData);
+      req.end();
+    });
+  }
+};
+
 const createOrder = async (req, res) => {
   try {
     const { _id: userId } = req.user || {};
@@ -16,6 +192,37 @@ const createOrder = async (req, res) => {
       return res
         .status(400)
         .json({ message: "Cart ID and User ID are required" });
+    }
+
+    // Validate Cashfree credentials and environment
+    if (paymentMethod === "ONLINE") {
+      console.log("=== Cashfree Environment Check ===");
+      console.log("CASHFREE_ENVIRONMENT:", process.env.CASHFREE_ENVIRONMENT);
+      console.log("CASHFREE_APP_ID:", process.env.CASHFREE_APP_ID);
+      console.log(
+        "CASHFREE_SECRET_KEY exists:",
+        !!process.env.CASHFREE_SECRET_KEY
+      );
+
+      if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+        console.error("Missing Cashfree credentials in environment variables");
+        return res.status(500).json({
+          message: "Payment service configuration error",
+          error: "Missing payment gateway credentials",
+        });
+      }
+
+      // Run network diagnostics
+      const networkOk = await diagnosticNetworkConnectivity();
+      if (!networkOk) {
+        console.error("⚠️ Network connectivity issues detected");
+        return res.status(500).json({
+          message: "Network connectivity issue",
+          error: "Unable to reach payment gateway servers",
+          suggestion:
+            "Please check your internet connection or try again later",
+        });
+      }
     }
 
     const cart = await Cart.findOne({ _id: cartId }).populate(
@@ -74,14 +281,35 @@ const createOrder = async (req, res) => {
       orderDate: new Date(),
     };
 
-    // ✅ Cashfree payment method with max limit check
+    // Cashfree payment method with improved error handling
     if (paymentMethod === "ONLINE") {
-      const MAX_CASHFREE_AMOUNT = 1000000; // ₹10,00,000 (Cashfree's typical limit)
+      const MAX_CASHFREE_AMOUNT = process.env.CASHFREE_MAX_AMOUNT || 500000;
+
+      console.log(
+        `Order amount: ₹${totalAmount}, Max allowed: ₹${MAX_CASHFREE_AMOUNT}`
+      );
 
       if (totalAmount > MAX_CASHFREE_AMOUNT) {
+        const suggestedSplits = Math.ceil(totalAmount / MAX_CASHFREE_AMOUNT);
+        const suggestedAmountPerOrder = Math.ceil(
+          totalAmount / suggestedSplits
+        );
+
         return res.status(400).json({
-          message:
-            "Order amount exceeds Cashfree's ₹10,00,000 limit. Please split your cart.",
+          message: `Order amount ₹${totalAmount} exceeds your account limit of ₹${MAX_CASHFREE_AMOUNT}.`,
+          maxAmount: MAX_CASHFREE_AMOUNT,
+          currentAmount: totalAmount,
+          suggestions: {
+            splitOrder: {
+              recommendedSplits: suggestedSplits,
+              amountPerOrder: suggestedAmountPerOrder,
+              message: `Consider splitting into ${suggestedSplits} orders of approximately ₹${suggestedAmountPerOrder} each`,
+            },
+            alternativePayment:
+              "Consider using bank transfer or other payment methods for high-value transactions",
+            accountUpgrade:
+              "Contact support to increase your transaction limit",
+          },
         });
       }
 
@@ -90,8 +318,7 @@ const createOrder = async (req, res) => {
         .toString()
         .slice(-6)}`;
 
-      // Cashfree order creation payload
-      const cashfreeOrderPayload = {
+      const orderRequest = {
         order_id: cashfreeOrderId,
         order_amount: totalAmount,
         order_currency: "INR",
@@ -103,8 +330,12 @@ const createOrder = async (req, res) => {
           customer_phone: shippingAddress?.phoneNumber || "9999999999",
         },
         order_meta: {
-          return_url: `${process.env.FRONTEND_URL}/payment/success`,
-          notify_url: `${process.env.BACKEND_URL}/api/payment/cashfree/webhook`,
+          return_url: `${
+            process.env.FRONTEND_URL || "https://srilaxmialankar.com/"
+          }/payment/success?order_id=${cashfreeOrderId}`,
+          notify_url: `${
+            process.env.BACKEND_URL || "http://localhost:8000"
+          }/api/payment/cashfree/webhook`,
         },
         order_tags: {
           cart_id: cart._id.toString(),
@@ -113,31 +344,112 @@ const createOrder = async (req, res) => {
       };
 
       try {
-        // Create Cashfree order using your Cashfree instance
-        const cashfreeOrder = await cashfree.PGCreateOrder(
-          "2023-08-01",
-          cashfreeOrderPayload
+        console.log("🔄 Creating Cashfree order with ID:", cashfreeOrderId);
+
+        let cashfreeResponse;
+
+        // Try SDK first, then fallback to direct API call
+        try {
+          if (setupCashfreeWithCustomAgent()) {
+            console.log("🔄 Attempting SDK call...");
+            cashfreeResponse = await Cashfree.PGCreateOrder(
+              "2023-08-01",
+              orderRequest
+            );
+            console.log("✅ SDK call successful");
+          } else {
+            throw new Error("SDK setup failed");
+          }
+        } catch (sdkError) {
+          console.log("⚠️ SDK call failed, trying direct API call...");
+          console.error("SDK Error:", sdkError.message);
+
+          // Fallback to direct API call
+          cashfreeResponse = await createCashfreeOrderDirect(orderRequest);
+        }
+
+        console.log(
+          "Cashfree Order Response:",
+          JSON.stringify(cashfreeResponse, null, 2)
         );
 
-        if (cashfreeOrder && cashfreeOrder.data) {
+        // Check if the response is successful
+        if (cashfreeResponse && cashfreeResponse.payment_session_id) {
           newOrderData.cashfree = {
             orderId: cashfreeOrderId,
-            cfOrderId: cashfreeOrder.data.cf_order_id,
-            orderDetails: cashfreeOrder.data,
-            paymentSessionId: cashfreeOrder.data.payment_session_id,
+            cfOrderId:
+              cashfreeResponse.cf_order_id || cashfreeResponse.order_id,
+            orderDetails: cashfreeResponse,
+            paymentSessionId: cashfreeResponse.payment_session_id,
           };
         } else {
-          throw new Error("Failed to create Cashfree order");
+          console.error(
+            "Unexpected Cashfree response format:",
+            cashfreeResponse
+          );
+          throw new Error(
+            "Failed to create Cashfree order - Invalid response format"
+          );
         }
       } catch (cashfreeError) {
         console.error("🔥 Cashfree order creation error:", cashfreeError);
+
+        // Enhanced error logging
+        if (cashfreeError.code === "ENOTFOUND") {
+          console.error("❌ DNS/Network Error - Cannot reach Cashfree servers");
+          return res.status(500).json({
+            message: "Payment gateway connectivity issue",
+            error: "Unable to connect to payment service",
+            suggestion: "Please check your internet connection and try again",
+            technicalDetails: "DNS resolution failed for api.cashfree.com",
+          });
+        }
+
+        if (cashfreeError.code === "ECONNREFUSED") {
+          console.error("❌ Connection Refused - Cashfree servers unavailable");
+          return res.status(500).json({
+            message: "Payment gateway temporarily unavailable",
+            error: "Payment service connection refused",
+            suggestion: "Please try again in a few minutes",
+          });
+        }
+
+        if (cashfreeError.code === "ETIMEDOUT") {
+          console.error("❌ Request Timeout");
+          return res.status(500).json({
+            message: "Payment gateway timeout",
+            error: "Request to payment service timed out",
+            suggestion: "Please try again",
+          });
+        }
+
+        // Handle HTTP errors
+        if (cashfreeError.response?.status === 401) {
+          return res.status(500).json({
+            message: "Payment gateway authentication failed",
+            error: "Invalid payment service credentials",
+            suggestion: "Please check your Cashfree App ID and Secret Key",
+          });
+        }
+
+        if (cashfreeError.response?.status === 400) {
+          return res.status(400).json({
+            message: "Invalid request to payment gateway",
+            error:
+              cashfreeError.response?.data?.message || cashfreeError.message,
+            details: cashfreeError.response?.data || "Bad request format",
+          });
+        }
+
         return res.status(500).json({
           message: "Failed to create payment order",
           error: cashfreeError.message,
+          details: cashfreeError.response?.data || "No additional details",
         });
       }
     }
 
+    // Create and save the order
     const newOrder = new Order(newOrderData);
     await newOrder.save();
 
@@ -151,6 +463,7 @@ const createOrder = async (req, res) => {
     // Clear the cart
     await Cart.findByIdAndUpdate(cartId, { $set: { items: [] } });
 
+    // Return success response
     res.status(201).json({
       message: "Order created successfully",
       order: newOrder,
@@ -159,127 +472,13 @@ const createOrder = async (req, res) => {
     });
   } catch (error) {
     console.error("🔥 Error creating order:", error);
-    res
-      .status(500)
-      .json({ message: "Internal server error", error: error.message });
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
   }
 };
-
-// const verifyPayment = async (req, res) => {
-//   try {
-//     const {
-//       razorpay_order_id,
-//       razorpay_payment_id,
-//       razorpay_signature,
-//       orderId, // our own order _id in DB
-//     } = req.body;
-
-//     // Step 1: Verify Razorpay signature
-//     const generatedSignature = crypto
-//       .createHmac("sha256", process.env.RAZORPAY_SECRET)
-//       .update(razorpay_order_id + "|" + razorpay_payment_id)
-//       .digest("hex");
-
-//     if (generatedSignature !== razorpay_signature) {
-//       return res.status(400).json({ message: "Payment verification failed" });
-//     }
-
-//     // Step 2: Update order status in DB
-//     const updatedOrder = await Order.findByIdAndUpdate(
-//       orderId,
-//       {
-//         paymentStatus: "Paid",
-//         orderStatus: "ORDER PLACED",
-//         "razorpay.paymentId": razorpay_payment_id,
-//         "razorpay.signature": razorpay_signature,
-//       },
-//       { new: true }
-//     );
-
-//     if (!updatedOrder) {
-//       return res.status(404).json({ message: "Order not found" });
-//     }
-
-//     res.status(200).json({
-//       message: "Payment verified successfully",
-//       order: updatedOrder,
-//     });
-//   } catch (error) {
-//     console.error("🔥 Error verifying payment:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Internal server error", error: error.message });
-//   }
-// };
-
-// const getOrdersByUser = async (req, res) => {
-//   try {
-//     const { _id: userId } = req.user || {};
-
-//     const orders = await Order.find({ userId })
-//       .populate({
-//         path: "cartId",
-//         populate: {
-//           path: "items.productId",
-//           model: "GoldProduct",
-//         },
-//       })
-//       .sort({ createdAt: -1 });
-
-//     res.status(200).json(orders);
-//   } catch (error) {
-//     console.error("🔥 Error in getOrdersByUser:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Internal server error", error: error.message });
-//   }
-// };
-
-// const getOrderById = async (req, res) => {
-//   try {
-//     const order = await Order.findById(req.params.id).populate({
-//       path: "cartId",
-//       populate: {
-//         path: "items.productId",
-//         model: "GoldProduct",
-//       },
-//     });
-
-//     if (!order) return res.status(404).json({ message: "Order not found" });
-
-//     res.status(200).json(order);
-//   } catch (error) {
-//     console.error("🔥 Error in getOrderById:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Internal server error", error: error.message });
-//   }
-// };
-// const getAllOrders = async (req, res) => {
-//   try {
-//     const orders = await Order.find()
-//       .populate({
-//         path: "cartId",
-//         populate: {
-//           path: "items.productId",
-//           model: "GoldProduct",
-//         },
-//       })
-//       .sort({ createdAt: -1 });
-
-//     res.status(200).json(orders);
-//   } catch (error) {
-//     console.error("🔥 Error in getAllOrders:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Internal server error", error: error.message });
-//   }
-// };
 
 module.exports = {
   createOrder,
 };
-//   getOrdersByUser,
-//   verifyPayment,
-//   getOrderById,
-//   getAllOrders,
