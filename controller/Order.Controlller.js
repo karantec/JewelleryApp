@@ -478,6 +478,35 @@ const createOrder = async (req, res) => {
     });
   }
 };
+const getOrderStatusDirect = async (orderId) => {
+  try {
+    console.log("🔄 Making direct API call to Cashfree for order:", orderId);
+    
+    const response = await fetch(`https://api.cashfree.com/pg/orders/${orderId}`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-client-id': process.env.CASHFREE_APP_ID,
+        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
+        'x-api-version': '2023-08-01'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Cashfree API error: ${response.status} - ${errorText}`);
+    }
+
+    const orderStatus = await response.json();
+    console.log("✅ Direct API call successful");
+    
+    return orderStatus;
+  } catch (error) {
+    console.error("🔥 Direct API call failed:", error.message);
+    throw new Error(`Failed to fetch order status: ${error.message}`);
+  }
+};
 const verifyOrder = async (req, res) => {
   try {
     const { orderId } = req.body;
