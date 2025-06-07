@@ -481,26 +481,46 @@ const createOrder = async (req, res) => {
 const getOrderStatusDirect = async (orderId) => {
   try {
     console.log("🔄 Making direct API call to Cashfree for order:", orderId);
-    
-    const response = await fetch(`https://api.cashfree.com/pg/orders/${orderId}`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'x-client-id': process.env.CASHFREE_APP_ID,
-        'x-client-secret': process.env.CASHFREE_SECRET_KEY,
-        'x-api-version': '2023-08-01'
+
+    // Determine the correct base URL based on environment
+    const baseUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://api.cashfree.com/pg' 
+      : 'https://sandbox.cashfree.com/pg';
+
+    // Validate required environment variables
+    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
+      throw new Error('Missing Cashfree credentials in environment variables');
+    }
+
+    console.log('Using Cashfree environment:', process.env.NODE_ENV === 'production' ? 'Production' : 'Sandbox');
+    console.log('App ID:', process.env.CASHFREE_APP_ID);
+
+    const response = await fetch(
+      `${baseUrl}/orders/${orderId}`,
+      {
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+          "x-client-id": process.env.CASHFREE_APP_ID,
+          "x-client-secret": process.env.CASHFREE_SECRET_KEY,
+          "x-api-version": "2023-08-01",
+        },
       }
-    });
+    );
+
+    console.log('Response status:', response.status);
+    console.log('Response headers:', Object.fromEntries(response.headers));
 
     if (!response.ok) {
       const errorText = await response.text();
+      console.error('Cashfree API error response:', errorText);
       throw new Error(`Cashfree API error: ${response.status} - ${errorText}`);
     }
 
     const orderStatus = await response.json();
-    console.log("✅ Direct API call successful");
-    
+    console.log("✅ Direct API call successful:", orderStatus);
+
     return orderStatus;
   } catch (error) {
     console.error("🔥 Direct API call failed:", error.message);
