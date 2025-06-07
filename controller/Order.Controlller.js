@@ -497,8 +497,7 @@ const verifyOrder = async (req, res) => {
     const order = await Order.findOne({
       $or: [
         { "cashfree.orderId": orderId },
-        { "cashfree.cfOrderId": orderId },
-        { _id: orderId },
+        { "cashfree.cfOrderId": orderId }
       ],
       userId: userId,
     }).populate("items.productId");
