@@ -478,7 +478,508 @@ const createOrder = async (req, res) => {
     });
   }
 };
+const verifyOrder = async (req, res) => {
+  try {
+    const { orderId, paymentId } = req.body;
+    const { _id: userId } = req.user || {};
+
+    if (!userId) {
+      return res.status(403).json({ message: "User authentication failed" });
+    }
+
+    if (!orderId) {
+      return res.status(400).json({ message: "Order ID is required" });
+    }
+
+    console.log("🔍 Verifying order:", orderId);
+
+    // Find the order in database
+    const order = await Order.findOne({
+      $or: [
+        { "cashfree.orderId": orderId },
+        { "cashfree.cfOrderId": orderId },
+        { _id: orderId },
+      ],
+      userId: userId,
+    }).populate("items.productId");
+
+    if (!order) {
+      return res.status(404).json({
+        message: "Order not found",
+        orderId: orderId,
+      });
+    }
+
+    // If it's a COD order, no payment verification needed
+    if (order.paymentMethod === "COD") {
+      return res.status(200).json({
+        message: "COD order verified successfully",
+        order: order,
+        paymentStatus: "COD",
+        orderStatus: order.orderStatus,
+      });
+    }
+
+    // For online payments, verify with Cashfree
+    if (order.paymentMethod === "ONLINE" && order.cashfree) {
+      const cashfreeOrderId = order.cashfree.orderId;
+
+      try {
+        console.log("🔄 Fetching order status from Cashfree:", cashfreeOrderId);
+
+        let orderStatus;
+
+        // Try SDK first, then fallback to direct API call
+        try {
+          if (setupCashfreeWithCustomAgent()) {
+            console.log("🔄 Attempting SDK status check...");
+            orderStatus = await Cashfree.PGOrderFetchOrder(
+              "2023-08-01",
+              cashfreeOrderId
+            );
+            console.log("✅ SDK status check successful");
+          } else {
+            throw new Error("SDK setup failed");
+          }
+        } catch (sdkError) {
+          console.log("⚠️ SDK status check failed, trying direct API call...");
+          console.error("SDK Error:", sdkError.message);
+
+          // Fallback to direct API call
+          orderStatus = await getOrderStatusDirect(cashfreeOrderId);
+        }
+
+        console.log(
+          "Cashfree Order Status:",
+          JSON.stringify(orderStatus, null, 2)
+        );
+
+        // Update order based on Cashfree response
+        let updatedOrder = order;
+
+        if (orderStatus.order_status === "PAID") {
+          updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
+            {
+              paymentStatus: "Paid",
+              orderStatus: "ORDER PLACED",
+              "cashfree.paymentDetails": orderStatus,
+              paymentCompletedAt: new Date(),
+            },
+            { new: true }
+          );
+
+          console.log("✅ Payment verified and order updated");
+
+          return res.status(200).json({
+            message: "Payment verified successfully",
+            order: updatedOrder,
+            paymentStatus: "Paid",
+            orderStatus: "ORDER PLACED",
+            cashfreeStatus: orderStatus,
+          });
+        } else if (orderStatus.order_status === "ACTIVE") {
+          return res.status(200).json({
+            message: "Order is active, payment pending",
+            order: order,
+            paymentStatus: "Pending",
+            orderStatus: "Created",
+            cashfreeStatus: orderStatus,
+          });
+        } else if (orderStatus.order_status === "CANCELLED") {
+          updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
+            {
+              paymentStatus: "Cancelled",
+              orderStatus: "CANCELLED",
+              "cashfree.paymentDetails": orderStatus,
+            },
+            { new: true }
+          );
+
+          // Make products available again
+          for (const item of order.items) {
+            await GoldProduct.findByIdAndUpdate(item.productId._id, {
+              isAvailable: true,
+            });
+          }
+
+          return res.status(200).json({
+            message: "Order cancelled",
+            order: updatedOrder,
+            paymentStatus: "Cancelled",
+            orderStatus: "CANCELLED",
+            cashfreeStatus: orderStatus,
+          });
+        } else if (orderStatus.order_status === "EXPIRED") {
+          updatedOrder = await Order.findByIdAndUpdate(
+            order._id,
+            {
+              paymentStatus: "Expired",
+              orderStatus: "EXPIRED",
+              "cashfree.paymentDetails": orderStatus,
+            },
+            { new: true }
+          );
+
+          // Make products available again
+          for (const item of order.items) {
+            await GoldProduct.findByIdAndUpdate(item.productId._id, {
+              isAvailable: true,
+            });
+          }
+
+          return res.status(200).json({
+            message: "Order expired",
+            order: updatedOrder,
+            paymentStatus: "Expired",
+            orderStatus: "EXPIRED",
+            cashfreeStatus: orderStatus,
+          });
+        } else {
+          return res.status(200).json({
+            message: "Order status retrieved",
+            order: order,
+            paymentStatus: order.paymentStatus,
+            orderStatus: order.orderStatus,
+            cashfreeStatus: orderStatus,
+          });
+        }
+      } catch (verifyError) {
+        console.error("🔥 Error verifying payment:", verifyError);
+
+        return res.status(500).json({
+          message: "Failed to verify payment",
+          error: verifyError.message,
+          order: order,
+        });
+      }
+    }
+
+    // If we reach here, something went wrong
+    return res.status(400).json({
+      message: "Unable to verify order",
+      order: order,
+    });
+  } catch (error) {
+    console.error("🔥 Error in verifyOrder:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+const getUserOrders = async (req, res) => {
+  try {
+    const { _id: userId } = req.user || {};
+    const { page = 1, limit = 10, status } = req.query;
+
+    if (!userId) {
+      return res.status(403).json({ message: "User authentication failed" });
+    }
+
+    const query = { userId };
+    if (status) {
+      query.orderStatus = status;
+    }
+
+    const orders = await Order.find(query)
+      .populate("items.productId")
+      .sort({ orderDate: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const totalOrders = await Order.countDocuments(query);
+
+    res.status(200).json({
+      message: "Orders retrieved successfully",
+      orders,
+      totalOrders,
+      totalPages: Math.ceil(totalOrders / limit),
+      currentPage: page,
+    });
+  } catch (error) {
+    console.error("🔥 Error getting user orders:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get Single Order
+const getOrderById = async (req, res) => {
+  try {
+    const { orderId } = req.params;
+    const { _id: userId } = req.user || {};
+
+    if (!userId) {
+      return res.status(403).json({ message: "User authentication failed" });
+    }
+
+    const order = await Order.findOne({
+      _id: orderId,
+      userId: userId,
+    }).populate("items.productId");
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    res.status(200).json({
+      message: "Order retrieved successfully",
+      order,
+    });
+  } catch (error) {
+    console.error("🔥 Error getting order by ID:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+const getAllOrders = async (req, res) => {
+  try {
+    const {
+      page = 1,
+      limit = 20,
+      status,
+      paymentMethod,
+      paymentStatus,
+      startDate,
+      endDate,
+      search,
+    } = req.query;
+
+    // Build query
+    const query = {};
+
+    if (status) {
+      query.orderStatus = status;
+    }
+
+    if (paymentMethod) {
+      query.paymentMethod = paymentMethod;
+    }
+
+    if (paymentStatus) {
+      query.paymentStatus = paymentStatus;
+    }
+
+    if (startDate || endDate) {
+      query.orderDate = {};
+      if (startDate) {
+        query.orderDate.$gte = new Date(startDate);
+      }
+      if (endDate) {
+        query.orderDate.$lte = new Date(endDate);
+      }
+    }
+
+    if (search) {
+      query.$or = [
+        { "shippingAddress.fullName": { $regex: search, $options: "i" } },
+        { "shippingAddress.phoneNumber": { $regex: search, $options: "i" } },
+        { "cashfree.orderId": { $regex: search, $options: "i" } },
+      ];
+    }
+
+    const orders = await Order.find(query)
+      .populate("userId", "name email phoneNumber")
+      .populate("items.productId")
+      .sort({ orderDate: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .exec();
+
+    const totalOrders = await Order.countDocuments(query);
+
+    // Calculate summary statistics
+    const totalRevenue = await Order.aggregate([
+      { $match: { ...query, paymentStatus: "Paid" } },
+      { $group: { _id: null, total: { $sum: "$totalAmount" } } },
+    ]);
+
+    const statusCounts = await Order.aggregate([
+      { $match: query },
+      { $group: { _id: "$orderStatus", count: { $sum: 1 } } },
+    ]);
+
+    res.status(200).json({
+      message: "Orders retrieved successfully",
+      orders,
+      pagination: {
+        totalOrders,
+        totalPages: Math.ceil(totalOrders / limit),
+        currentPage: parseInt(page),
+        limit: parseInt(limit),
+      },
+      summary: {
+        totalRevenue: totalRevenue[0]?.total || 0,
+        statusCounts: statusCounts.reduce((acc, curr) => {
+          acc[curr._id] = curr.count;
+          return acc;
+        }, {}),
+      },
+    });
+  } catch (error) {
+    console.error("🔥 Error getting all orders:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
+
+// Get Order Analytics (Admin function)
+const getOrderAnalytics = async (req, res) => {
+  try {
+    const { period = "30d" } = req.query;
+
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+
+    switch (period) {
+      case "7d":
+        startDate.setDate(startDate.getDate() - 7);
+        break;
+      case "30d":
+        startDate.setDate(startDate.getDate() - 30);
+        break;
+      case "90d":
+        startDate.setDate(startDate.getDate() - 90);
+        break;
+      case "1y":
+        startDate.setFullYear(startDate.getFullYear() - 1);
+        break;
+      default:
+        startDate.setDate(startDate.getDate() - 30);
+    }
+
+    const dateQuery = {
+      orderDate: { $gte: startDate, $lte: endDate },
+    };
+
+    // Total orders and revenue
+    const totalStats = await Order.aggregate([
+      { $match: dateQuery },
+      {
+        $group: {
+          _id: null,
+          totalOrders: { $sum: 1 },
+          totalRevenue: { $sum: "$totalAmount" },
+          paidRevenue: {
+            $sum: {
+              $cond: [{ $eq: ["$paymentStatus", "Paid"] }, "$totalAmount", 0],
+            },
+          },
+        },
+      },
+    ]);
+
+    // Orders by status
+    const ordersByStatus = await Order.aggregate([
+      { $match: dateQuery },
+      {
+        $group: {
+          _id: "$orderStatus",
+          count: { $sum: 1 },
+          revenue: { $sum: "$totalAmount" },
+        },
+      },
+    ]);
+
+    // Orders by payment method
+    const ordersByPaymentMethod = await Order.aggregate([
+      { $match: dateQuery },
+      {
+        $group: {
+          _id: "$paymentMethod",
+          count: { $sum: 1 },
+          revenue: { $sum: "$totalAmount" },
+        },
+      },
+    ]);
+
+    // Daily order trends
+    const dailyTrends = await Order.aggregate([
+      { $match: dateQuery },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$orderDate" },
+          },
+          orders: { $sum: 1 },
+          revenue: { $sum: "$totalAmount" },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    // Top products
+    const topProducts = await Order.aggregate([
+      { $match: dateQuery },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.productId",
+          totalQuantity: { $sum: "$items.quantity" },
+          totalRevenue: {
+            $sum: {
+              $multiply: ["$items.quantity", "$items.priceAtTimeOfAdding"],
+            },
+          },
+          orderCount: { $sum: 1 },
+        },
+      },
+      { $sort: { totalQuantity: -1 } },
+      { $limit: 10 },
+      {
+        $lookup: {
+          from: "goldproducts",
+          localField: "_id",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      { $unwind: "$product" },
+    ]);
+
+    res.status(200).json({
+      message: "Analytics retrieved successfully",
+      period,
+      dateRange: { startDate, endDate },
+      summary: totalStats[0] || {
+        totalOrders: 0,
+        totalRevenue: 0,
+        paidRevenue: 0,
+      },
+      ordersByStatus,
+      ordersByPaymentMethod,
+      dailyTrends,
+      topProducts,
+    });
+  } catch (error) {
+    console.error("🔥 Error getting order analytics:", error);
+    res.status(500).json({
+      message: "Internal server error",
+      error: error.message,
+    });
+  }
+};
 
 module.exports = {
   createOrder,
+
+  verifyOrder,
+  getUserOrders,
+  getOrderById,
+  // cancelOrder,
+  // handleCashfreeWebhook,
+  // updateOrderStatus,
+  getAllOrders,
+  // getOrderAnalytics,
+  // retryPayment
 };
