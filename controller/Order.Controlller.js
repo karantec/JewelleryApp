@@ -480,23 +480,11 @@ const createOrder = async (req, res) => {
 };
 const getOrderStatusDirect = async (orderId) => {
   try {
-    console.log("🔄 Making direct API call to Cashfree for order:", orderId);
+    console.log("🔄 Making direct API call to Cashfree SANDBOX for order:", orderId);
 
-    // Determine the correct base URL based on environment
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://api.cashfree.com/pg' 
-      : 'https://sandbox.cashfree.com/pg';
-
-    // Validate required environment variables
-    if (!process.env.CASHFREE_APP_ID || !process.env.CASHFREE_SECRET_KEY) {
-      throw new Error('Missing Cashfree credentials in environment variables');
-    }
-
-    console.log('Using Cashfree environment:', process.env.NODE_ENV === 'production' ? 'Production' : 'Sandbox');
-    console.log('App ID:', process.env.CASHFREE_APP_ID);
-
+    // USE SANDBOX URL FOR TESTING
     const response = await fetch(
-      `${baseUrl}/orders/${orderId}`,
+      `https://sandbox.cashfree.com/pg/orders/${orderId}`,
       {
         method: "GET",
         headers: {
@@ -509,17 +497,13 @@ const getOrderStatusDirect = async (orderId) => {
       }
     );
 
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers));
-
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Cashfree API error response:', errorText);
       throw new Error(`Cashfree API error: ${response.status} - ${errorText}`);
     }
 
     const orderStatus = await response.json();
-    console.log("✅ Direct API call successful:", orderStatus);
+    console.log("✅ Direct API call successful");
 
     return orderStatus;
   } catch (error) {
