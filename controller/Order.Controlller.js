@@ -480,7 +480,7 @@ const createOrder = async (req, res) => {
 };
 const verifyOrder = async (req, res) => {
   try {
-    const { orderId, paymentId } = req.body;
+    const { orderId } = req.body;
     const { _id: userId } = req.user || {};
 
     if (!userId) {
