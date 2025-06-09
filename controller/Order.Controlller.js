@@ -464,7 +464,7 @@ const createOrder = async (req, res) => {
     await Cart.findByIdAndUpdate(cartId, { $set: { items: [] } });
 
     // Return success response
-    res.status(201).json({
+    return res.status(201).json({
       message: "Order created successfully",
       order: newOrder,
       cashfreeOrder: newOrder.cashfree?.orderDetails || null,
