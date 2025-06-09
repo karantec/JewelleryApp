@@ -266,7 +266,7 @@ const createOrder = async (req, res) => {
           name: product.name,
           description: product.description,
           category: product.category,
-          image: product.image,
+          image: product.coverImage,
         },
       });
     }
