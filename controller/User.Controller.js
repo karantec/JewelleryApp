@@ -166,7 +166,7 @@ const userSignup = async (req, res) => {
     const { name, email, password, phone, profileImage, addresses } = req.body;
 
     // Validate required fields
-    if (!name || !email || !password || !phone || !profileImage) {
+    if (!name || !email || !password || !phone) {
       return res.status(400).json({ message: "All fields are required" });
     }
 
@@ -185,7 +185,6 @@ const userSignup = async (req, res) => {
       email,
       password: hashedPassword,
       phone,
-      profileImage,
       addresses: addresses || [],
     });
 
@@ -223,7 +222,7 @@ const userSignup = async (req, res) => {
 //       return res.status(400).json({ message: "Phone number is required" });
 //     }
 
-//     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
+//     const phoneNumber = phone.startsWith("+") ? phone : +91${phone};
 
 //     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
 
@@ -263,7 +262,7 @@ const sendOTP = async (req, res) => {
     const otp = Math.floor(100000 + Math.random() * 900000);
     otpStore.set(phone, otp); // Store temporarily
 
-    const message = `Your OTP is ${otp}`;
+    const message = Your OTP is ${otp};
 
     const response = await axios.post(
       "https://www.fast2sms.com/dev/bulkV2",
@@ -300,7 +299,7 @@ const sendOTP = async (req, res) => {
 //       return res.status(400).json({ message: "Phone and OTP are required" });
 //     }
 
-//     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
+//     const phoneNumber = phone.startsWith("+") ? phone : +91${phone};
 //     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
 
 //     if (!TWILIO_VERIFY_SERVICE_SID) {
@@ -377,7 +376,7 @@ const verifyOTP = async (req, res) => {
       user = new User({
         phone,
         isVerified: true,
-        email: `user_${phone}@example.com`,
+        email: user_${phone}@example.com,
         otpVerification: { verified: true, lastVerifiedAt: new Date() },
         addresses: [
           {
@@ -722,3 +721,4 @@ module.exports = {
   getUserProfile,
   updateUserProfile,
 };
+// User controller
