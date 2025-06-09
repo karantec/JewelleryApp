@@ -84,7 +84,7 @@ const createCashfreeOrderDirect = async (orderData) => {
       ? "https://api.cashfree.com"
       : "https://sandbox.cashfree.com";
 
-  const url = ${baseUrl}/pg/orders;
+  const url = `${baseUrl}/pg/orders`;
 
   const headers = {
     Accept: "application/json",
@@ -106,7 +106,7 @@ const createCashfreeOrderDirect = async (orderData) => {
 
     if (!response.ok) {
       const errorData = await response.text();
-      throw new Error(HTTP ${response.status}: ${errorData});
+      throw new Error(`HTTP ${response.status}: ${errorData}`);
     }
 
     const result = await response.json();
@@ -151,13 +151,13 @@ const createCashfreeOrderDirect = async (orderData) => {
               console.error("❌ API returned error:", res.statusCode, result);
               reject(
                 new Error(
-                  API Error ${res.statusCode}: ${JSON.stringify(result)}
+                  `API Error ${res.statusCode}: ${JSON.stringify(result)}`
                 )
               );
             }
           } catch (parseError) {
             console.error("❌ Failed to parse response:", data);
-            reject(new Error(Parse error: ${parseError.message}));
+            reject(new Error(`Parse error: ${parseError.message}`));
           }
         });
       });
@@ -217,7 +217,7 @@ const createOrder = async (req, res) => {
       // Run network diagnostics
       const networkOk = await diagnosticNetworkConnectivity();
       if (!networkOk) {
-        console.error("⚠ Network connectivity issues detected");
+        console.error("⚠️ Network connectivity issues detected");
         return res.status(500).json({
           message: "Network connectivity issue",
           error: "Unable to reach payment gateway servers",
@@ -242,7 +242,7 @@ const createOrder = async (req, res) => {
 
       if (!product) {
         return res.status(400).json({
-          message: Invalid product: ${item?.productId || "unknown"},
+          message: `Invalid product: ${item?.productId || "unknown"}`,
         });
       }
 
@@ -296,7 +296,7 @@ const createOrder = async (req, res) => {
       const MAX_CASHFREE_AMOUNT = process.env.CASHFREE_MAX_AMOUNT || 500000;
 
       console.log(
-        Order amount: ₹${totalAmount}, Max allowed: ₹${MAX_CASHFREE_AMOUNT}
+        `Order amount: ₹${totalAmount}, Max allowed: ₹${MAX_CASHFREE_AMOUNT}`
       );
 
       if (totalAmount > MAX_CASHFREE_AMOUNT) {
@@ -306,14 +306,14 @@ const createOrder = async (req, res) => {
         );
 
         return res.status(400).json({
-          message: Order amount ₹${totalAmount} exceeds your account limit of ₹${MAX_CASHFREE_AMOUNT}.,
+          message: `Order amount ₹${totalAmount} exceeds your account limit of ₹${MAX_CASHFREE_AMOUNT}.`,
           maxAmount: MAX_CASHFREE_AMOUNT,
           currentAmount: totalAmount,
           suggestions: {
             splitOrder: {
               recommendedSplits: suggestedSplits,
               amountPerOrder: suggestedAmountPerOrder,
-              message: Consider splitting into ${suggestedSplits} orders of approximately ₹${suggestedAmountPerOrder} each,
+              message: `Consider splitting into ${suggestedSplits} orders of approximately ₹${suggestedAmountPerOrder} each`,
             },
             alternativePayment:
               "Consider using bank transfer or other payment methods for high-value transactions",
@@ -332,7 +332,7 @@ const createOrder = async (req, res) => {
         order_id: cashfreeOrderId,
         order_amount: totalAmount,
         order_currency: "INR",
-        order_note: Order for cart ${cart._id},
+        order_note: `Order for cart ${cart._id}`,
         customer_details: {
           customer_id: userId.toString(),
           customer_name: shippingAddress?.fullName || "Customer",
@@ -371,7 +371,7 @@ const createOrder = async (req, res) => {
             throw new Error("SDK setup failed");
           }
         } catch (sdkError) {
-          console.log("⚠ SDK call failed, trying direct API call...");
+          console.log("⚠️ SDK call failed, trying direct API call...");
           console.error("SDK Error:", sdkError.message);
 
           // Fallback to direct API call
@@ -498,7 +498,7 @@ const getOrderStatusDirect = async (orderId) => {
 
     // USE SANDBOX URL FOR TESTING
     const response = await fetch(
-      https://sandbox.cashfree.com/pg/orders/${orderId},
+      `https://sandbox.cashfree.com/pg/orders/${orderId}`,
       {
         method: "GET",
         headers: {
@@ -513,7 +513,7 @@ const getOrderStatusDirect = async (orderId) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(Cashfree API error: ${response.status} - ${errorText});
+      throw new Error(`Cashfree API error: ${response.status} - ${errorText}`);
     }
 
     const orderStatus = await response.json();
@@ -522,7 +522,7 @@ const getOrderStatusDirect = async (orderId) => {
     return orderStatus;
   } catch (error) {
     console.error("🔥 Direct API call failed:", error.message);
-    throw new Error(Failed to fetch order status: ${error.message});
+    throw new Error(`Failed to fetch order status: ${error.message}`);
   }
 };
 const verifyOrder = async (req, res) => {
@@ -585,7 +585,7 @@ const verifyOrder = async (req, res) => {
             throw new Error("SDK setup failed");
           }
         } catch (sdkError) {
-          console.log("⚠ SDK status check failed, trying direct API call...");
+          console.log("⚠️ SDK status check failed, trying direct API call...");
           console.error("SDK Error:", sdkError.message);
 
           // Fallback to direct API call
@@ -1026,4 +1026,3 @@ module.exports = {
   // getOrderAnalytics,
   // retryPayment
 };
-   // Order controller
