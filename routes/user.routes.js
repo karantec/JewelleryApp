@@ -10,6 +10,7 @@ const {
   updateUserProfile,
   getUserProfile,
   googleSignIn,
+  resendOTP,
 } = require("../controller/User.Controller");
 const { verifyToken } = require("../middleware/authmiddleware");
 
@@ -22,6 +23,7 @@ router.get("/", (req, res) => {
 
 router.post("/send-otp", sendOTP);
 router.post("/verify-otp", verifyOTP);
+router.post("/resend", resendOTP);
 // Signup Route
 router.post("/signup", userSignup);
 router.post("/adminLogin", adminLogin);

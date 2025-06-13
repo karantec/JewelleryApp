@@ -125,7 +125,6 @@ const googleSignIn = async (req, res) => {
       },
       token,
     });
-
   } catch (error) {
     console.error("Google Sign-In Error:", error);
 
@@ -158,7 +157,6 @@ const googleSignIn = async (req, res) => {
     });
   }
 };
-
 
 // User Signup
 const userSignup = async (req, res) => {
@@ -214,60 +212,64 @@ const userSignup = async (req, res) => {
   }
 };
 
-// const sendOTP = async (req, res) => {
-//   try {
-//     const { phone } = req.body;
-
-//     if (!phone) {
-//       return res.status(400).json({ message: "Phone number is required" });
-//     }
-
-//     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
-
-//     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
-
-//     if (!TWILIO_VERIFY_SERVICE_SID) {
-//       return res
-//         .status(500)
-//         .json({ message: "Twilio Verify Service SID is not configured" });
-//     }
-
-//     const verification = await twilioClient.verify.v2
-//       .services(TWILIO_VERIFY_SERVICE_SID)
-//       .verifications.create({
-//         to: phoneNumber,
-//         channel: "sms",
-//       });
-
-//     res.status(200).json({
-//       message: "OTP sent successfully",
-//       verificationSid: verification.sid,
-//       status: verification.status,
-//     });
-//   } catch (error) {
-//     console.error("OTP Send Error:", error);
-//     res
-//       .status(500)
-//       .json({ message: "Failed to send OTP", error: error.message });
-//   }
-// };
-
 const otpStore = new Map(); // In-memory store. Use DB/Redis in production.
+
+// Helper function to clean expired OTPs
+const cleanExpiredOTPs = () => {
+  const now = Date.now();
+  for (const [phone, data] of otpStore.entries()) {
+    if (now > data.expiresAt) {
+      otpStore.delete(phone);
+    }
+  }
+};
 
 const sendOTP = async (req, res) => {
   try {
     const { phone } = req.body;
-    if (!phone) return res.status(400).json({ message: "Phone is required" });
 
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    // Validate phone number format (basic validation)
+    const phoneRegex = /^[6-9]\d{9}$/; // Indian mobile number format
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ message: "Invalid phone number format" });
+    }
+
+    // Clean expired OTPs first
+    cleanExpiredOTPs();
+
+    // Check if OTP was recently sent (rate limiting)
+    const existingOTP = otpStore.get(phone);
+    if (existingOTP && Date.now() < existingOTP.expiresAt) {
+      const timeLeft = Math.ceil((existingOTP.expiresAt - Date.now()) / 1000);
+      return res.status(429).json({
+        message: `OTP already sent. Please wait ${timeLeft} seconds before requesting again.`,
+        retryAfter: timeLeft,
+      });
+    }
+
+    // Generate new OTP
     const otp = Math.floor(100000 + Math.random() * 900000);
-    otpStore.set(phone, otp); // Store temporarily
 
-    const message = `Your OTP is ${otp}`;
+    // Store OTP with expiration (5 minutes)
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    otpStore.set(phone, {
+      otp: otp,
+      expiresAt: expiresAt,
+      attempts: 0, // Track verification attempts
+      createdAt: Date.now(),
+    });
 
+    console.log(`Generated OTP for ${phone}: ${otp}`); // For debugging - remove in production
+
+    // Send OTP via Fast2SMS
     const response = await axios.post(
       "https://www.fast2sms.com/dev/bulkV2",
       {
-        variables_values: otp,
+        variables_values: otp.toString(),
         route: "otp",
         numbers: phone,
       },
@@ -275,144 +277,203 @@ const sendOTP = async (req, res) => {
         headers: {
           authorization: process.env.FAST2SMS_API_KEY,
         },
+        timeout: 10000, // 10 second timeout
       }
     );
 
-    if (response.data.return) {
-      res.status(200).json({ message: "OTP sent successfully", phone });
+    console.log("Fast2SMS Response:", response.data); // For debugging
+
+    // Check if SMS was sent successfully
+    if (response.data && response.data.return === true) {
+      res.status(200).json({
+        message: "OTP sent successfully",
+        phone,
+        expiresIn: 300, // 5 minutes in seconds
+      });
     } else {
-      res.status(500).json({ message: "Failed to send OTP" });
+      // Remove OTP from store if SMS failed
+      otpStore.delete(phone);
+      res.status(500).json({
+        message: "Failed to send OTP",
+        error: response.data?.message || "SMS service error",
+      });
     }
   } catch (error) {
     console.error("Send OTP Error:", error.response?.data || error.message);
-    res
-      .status(500)
-      .json({ message: "Failed to send OTP", error: error.message });
+
+    // Remove OTP from store if there was an error
+    if (req.body.phone) {
+      otpStore.delete(req.body.phone);
+    }
+
+    res.status(500).json({
+      message: "Failed to send OTP",
+      error: error.response?.data?.message || error.message,
+    });
   }
 };
-
-// const verifyOTP = async (req, res) => {
-//   try {
-//     const { phone, otp } = req.body;
-
-//     if (!phone || !otp) {
-//       return res.status(400).json({ message: "Phone and OTP are required" });
-//     }
-
-//     const phoneNumber = phone.startsWith("+") ? phone : `+91${phone}`;
-//     const { TWILIO_VERIFY_SERVICE_SID } = process.env;
-
-//     if (!TWILIO_VERIFY_SERVICE_SID) {
-//       return res.status(500).json({
-//         message: "Twilio Verify Service SID not found in environment",
-//       });
-//     }
-
-//     const verificationCheck = await twilioClient.verify.v2
-//       .services(TWILIO_VERIFY_SERVICE_SID)
-//       .verificationChecks.create({
-//         to: phoneNumber,
-//         code: otp,
-//       });
-
-//     if (verificationCheck.status !== "approved") {
-//       return res.status(400).json({ message: "Invalid OTP" });
-//     }
-
-//     let user = await User.findOne({ phone: phoneNumber });
-//     if (!user) {
-//       const placeholderEmail = `user_${phoneNumber.replace(
-//         "+",
-//         ""
-//       )}@example.com`;
-//       user = new User({
-//         phone: phoneNumber,
-//         isVerified: true,
-//         email: placeholderEmail,
-//         otpVerification: { verified: true, lastVerifiedAt: new Date() },
-//       });
-//       await user.save();
-//     } else {
-//       user.isVerified = true;
-//       user.otpVerification = { verified: true, lastVerifiedAt: new Date() };
-//       await user.save();
-//     }
-
-//     const token = generateToken(user._id);
-
-//     res.status(200).json({
-//       message: "OTP verified successfully",
-//       user: {
-//         _id: user._id,
-//         phone: user.phone,
-//         isVerified: user.isVerified,
-//         otpVerification: user.otpVerification,
-//       },
-//       token,
-//     });
-//   } catch (error) {
-//     console.error("OTP Verification Error:", error);
-//     res
-//       .status(500)
-//       .json({ message: "OTP verification failed", error: error.message });
-//   }
-// };
 
 const verifyOTP = async (req, res) => {
   try {
     const { phone, otp } = req.body;
-    if (!phone || !otp)
-      return res.status(400).json({ message: "Phone and OTP required" });
 
-    const storedOtp = otpStore.get(phone);
-    if (parseInt(otp) !== storedOtp) {
-      return res.status(400).json({ message: "Invalid or expired OTP" });
+    if (!phone || !otp) {
+      return res.status(400).json({ message: "Phone and OTP are required" });
     }
 
-    otpStore.delete(phone); // Remove after successful verification
+    // Validate phone number format
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ message: "Invalid phone number format" });
+    }
 
-    let user = await User.findOne({ phone });
-    if (!user) {
-      user = new User({
-        phone,
-        isVerified: true,
-        email: `user_${phone}@example.com`,
-        otpVerification: { verified: true, lastVerifiedAt: new Date() },
-        addresses: [
-          {
-            primaryPhone: phone,
-            zipcode: "000000",
-            state: "Unknown",
-            city: "Unknown",
-            addressLine: "Temporary Address",
-          },
-        ],
+    // Clean expired OTPs
+    cleanExpiredOTPs();
+
+    const storedData = otpStore.get(phone);
+
+    if (!storedData) {
+      return res.status(400).json({
+        message: "OTP not found or expired. Please request a new OTP.",
       });
-      await user.save();
-    } else {
-      user.isVerified = true;
-      user.otpVerification = { verified: true, lastVerifiedAt: new Date() };
-      await user.save();
     }
 
-    const token = generateToken(user._id);
+    // Check if OTP is expired
+    if (Date.now() > storedData.expiresAt) {
+      otpStore.delete(phone);
+      return res
+        .status(400)
+        .json({ message: "OTP expired. Please request a new OTP." });
+    }
 
-    res.status(200).json({
-      message: "OTP verified successfully",
-      user: {
-        _id: user._id,
-        phone: user.phone,
-        isVerified: user.isVerified,
-        otpVerification: user.otpVerification,
-      },
-      token,
-    });
+    // Check attempt limit (max 3 attempts)
+    if (storedData.attempts >= 3) {
+      otpStore.delete(phone);
+      return res.status(400).json({
+        message: "Too many failed attempts. Please request a new OTP.",
+      });
+    }
+
+    // Verify OTP - Convert both to string for comparison to avoid type issues
+    const inputOTP = otp.toString().trim();
+    const storedOTP = storedData.otp.toString();
+
+    if (inputOTP === storedOTP) {
+      // OTP verified successfully - Clean up first
+      otpStore.delete(phone);
+
+      // Handle user creation/update
+      let user = await User.findOne({ phone });
+
+      if (!user) {
+        // Create new user
+        user = new User({
+          phone,
+          isVerified: true,
+          email: `user_${phone}@example.com`,
+          otpVerification: {
+            verified: true,
+            lastVerifiedAt: new Date(),
+          },
+          addresses: [
+            {
+              primaryPhone: phone,
+              zipcode: "000000",
+              state: "Unknown",
+              city: "Unknown",
+              addressLine: "Temporary Address",
+            },
+          ],
+        });
+
+        try {
+          await user.save();
+          console.log(`New user created for phone: ${phone}`);
+        } catch (saveError) {
+          console.error("Error saving new user:", saveError);
+          return res.status(500).json({
+            message: "User creation failed",
+            error: "Database error",
+          });
+        }
+      } else {
+        // Update existing user
+        user.isVerified = true;
+        user.otpVerification = {
+          verified: true,
+          lastVerifiedAt: new Date(),
+        };
+
+        try {
+          await user.save();
+          console.log(`User updated for phone: ${phone}`);
+        } catch (updateError) {
+          console.error("Error updating user:", updateError);
+          return res.status(500).json({
+            message: "User update failed",
+            error: "Database error",
+          });
+        }
+      }
+
+      // Generate token
+      let token;
+      try {
+        token = generateToken(user._id);
+      } catch (tokenError) {
+        console.error("Error generating token:", tokenError);
+        return res.status(500).json({
+          message: "Token generation failed",
+          error: "Authentication error",
+        });
+      }
+
+      return res.status(200).json({
+        message: "OTP verified successfully",
+        user: {
+          _id: user._id,
+          phone: user.phone,
+          isVerified: user.isVerified,
+          otpVerification: user.otpVerification,
+          email: user.email,
+        },
+        token,
+        verified: true,
+      });
+    } else {
+      // Wrong OTP - increment attempts
+      storedData.attempts += 1;
+      otpStore.set(phone, storedData);
+
+      const attemptsLeft = 3 - storedData.attempts;
+
+      console.log(
+        `Invalid OTP attempt for ${phone}. Attempts: ${storedData.attempts}/3`
+      );
+
+      return res.status(400).json({
+        message: "Invalid OTP",
+        attemptsLeft: attemptsLeft > 0 ? attemptsLeft : 0,
+        verified: false,
+      });
+    }
   } catch (error) {
     console.error("Verify OTP Error:", error);
-    res
-      .status(500)
-      .json({ message: "OTP verification failed", error: error.message });
+
+    // Clean up OTP on error to prevent issues
+    if (req.body.phone) {
+      otpStore.delete(req.body.phone);
+    }
+
+    res.status(500).json({
+      message: "OTP verification failed",
+      error: error.message,
+    });
   }
+};
+
+const startOTPCleanup = () => {
+  setInterval(cleanExpiredOTPs, 60000); // Clean every minute
 };
 
 const adminSignup = async (req, res) => {
@@ -619,6 +680,153 @@ const getUserProfile = async (req, res) => {
     });
   }
 };
+
+const resendOTP = async (req, res) => {
+  try {
+    const { phone } = req.body;
+
+    if (!phone) {
+      return res.status(400).json({ message: "Phone number is required" });
+    }
+
+    // Validate phone number format
+    const phoneRegex = /^[6-9]\d{9}$/;
+    if (!phoneRegex.test(phone)) {
+      return res.status(400).json({ message: "Invalid phone number format" });
+    }
+
+    // Clean expired OTPs first
+    cleanExpiredOTPs();
+
+    const existingOTP = otpStore.get(phone);
+
+    // Check if there's a recent OTP request (rate limiting - minimum 30 seconds between requests)
+    if (existingOTP) {
+      const timeSinceLastRequest = Date.now() - existingOTP.createdAt;
+      const minWaitTime = 30 * 1000; // 30 seconds
+
+      if (timeSinceLastRequest < minWaitTime) {
+        const waitTime = Math.ceil((minWaitTime - timeSinceLastRequest) / 1000);
+        return res.status(429).json({
+          message: `Please wait ${waitTime} seconds before requesting OTP again`,
+          retryAfter: waitTime,
+          canResend: false,
+        });
+      }
+
+      // Check resend limit (max 3 resends per phone number per hour)
+      const oneHourAgo = Date.now() - 60 * 60 * 1000;
+      if (
+        existingOTP.resendCount >= 3 &&
+        existingOTP.firstRequestAt > oneHourAgo
+      ) {
+        const resetTime = Math.ceil(
+          (existingOTP.firstRequestAt + 60 * 60 * 1000 - Date.now()) / 60000
+        );
+        return res.status(429).json({
+          message: `Maximum resend limit reached. Try again after ${resetTime} minutes`,
+          retryAfter: resetTime * 60,
+          canResend: false,
+        });
+      }
+    }
+
+    // Generate new OTP
+    const otp = Math.floor(100000 + Math.random() * 900000);
+    const now = Date.now();
+    const expiresAt = now + 5 * 60 * 1000; // 5 minutes
+
+    // Update or create OTP data
+    const otpData = existingOTP
+      ? {
+          otp: otp,
+          expiresAt: expiresAt,
+          attempts: 0,
+          createdAt: now,
+          resendCount: (existingOTP.resendCount || 0) + 1,
+          firstRequestAt: existingOTP.firstRequestAt || now,
+          lastResendAt: now,
+        }
+      : {
+          otp: otp,
+          expiresAt: expiresAt,
+          attempts: 0,
+          createdAt: now,
+          resendCount: 1,
+          firstRequestAt: now,
+          lastResendAt: now,
+        };
+
+    otpStore.set(phone, otpData);
+
+    console.log(
+      `Resent OTP for ${phone}: ${otp} (Resend #${otpData.resendCount})`
+    ); // For debugging - remove in production
+
+    // Send OTP via Fast2SMS
+    const response = await axios.post(
+      "https://www.fast2sms.com/dev/bulkV2",
+      {
+        variables_values: otp.toString(),
+        route: "otp",
+        numbers: phone,
+      },
+      {
+        headers: {
+          authorization: process.env.FAST2SMS_API_KEY,
+        },
+        timeout: 10000,
+      }
+    );
+
+    console.log("Fast2SMS Resend Response:", response.data);
+
+    if (response.data && response.data.return === true) {
+      const remainingResends = Math.max(0, 3 - otpData.resendCount);
+
+      res.status(200).json({
+        message: "OTP resent successfully",
+        phone,
+        expiresIn: 300, // 5 minutes
+        resendCount: otpData.resendCount,
+        remainingResends: remainingResends,
+        canResend: remainingResends > 0,
+        nextResendIn: 30, // seconds
+      });
+    } else {
+      // Revert resend count if SMS failed
+      if (existingOTP) {
+        existingOTP.resendCount = Math.max(
+          0,
+          (existingOTP.resendCount || 1) - 1
+        );
+        otpStore.set(phone, existingOTP);
+      } else {
+        otpStore.delete(phone);
+      }
+
+      res.status(500).json({
+        message: "Failed to resend OTP",
+        error: response.data?.message || "SMS service error",
+      });
+    }
+  } catch (error) {
+    console.error("Resend OTP Error:", error.response?.data || error.message);
+
+    // Revert changes on error
+    const existingOTP = otpStore.get(req.body.phone);
+    if (existingOTP && existingOTP.resendCount > 0) {
+      existingOTP.resendCount -= 1;
+      otpStore.set(req.body.phone, existingOTP);
+    }
+
+    res.status(500).json({
+      message: "Failed to resend OTP",
+      error: error.response?.data?.message || error.message,
+    });
+  }
+};
+
 const updateUserProfile = async (req, res) => {
   try {
     const userId = req.user._id;
@@ -720,4 +928,6 @@ module.exports = {
   googleSignIn,
   getUserProfile,
   updateUserProfile,
+  startOTPCleanup,
+  resendOTP,
 };
