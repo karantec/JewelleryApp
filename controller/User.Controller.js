@@ -362,84 +362,67 @@ const verifyOTP = async (req, res) => {
       // OTP verified successfully - Clean up first
       otpStore.delete(phone);
 
-      // Handle user creation/update
-      let user = await User.findOne({ phone });
-
-      if (!user) {
-        // Create new user
-        user = new User({
-          phone,
-          isVerified: true,
-          email: `user_${phone}@example.com`,
-          otpVerification: {
-            verified: true,
-            lastVerifiedAt: new Date(),
-          },
-          addresses: [
-            {
-              primaryPhone: phone,
-              zipcode: "000000",
-              state: "Unknown",
-              city: "Unknown",
-              addressLine: "Temporary Address",
-            },
-          ],
-        });
-
-        try {
-          await user.save();
-          console.log(`New user created for phone: ${phone}`);
-        } catch (saveError) {
-          console.error("Error saving new user:", saveError);
-          return res.status(500).json({
-            message: "User creation failed",
-            error: "Database error",
-          });
-        }
-      } else {
-        // Update existing user
-        user.isVerified = true;
-        user.otpVerification = {
-          verified: true,
-          lastVerifiedAt: new Date(),
-        };
-
-        try {
-          await user.save();
-          console.log(`User updated for phone: ${phone}`);
-        } catch (updateError) {
-          console.error("Error updating user:", updateError);
-          return res.status(500).json({
-            message: "User update failed",
-            error: "Database error",
-          });
-        }
-      }
-
-      // Generate token
-      let token;
+      // Handle user creation/update with upsert (FIXED APPROACH)
       try {
-        token = generateToken(user._id);
-      } catch (tokenError) {
-        console.error("Error generating token:", tokenError);
+        const user = await User.findOneAndUpdate(
+          { phone }, // filter
+          {
+            $set: {
+              phone,
+              isVerified: true,
+              otpVerification: {
+                verified: true,
+                lastVerifiedAt: new Date(),
+              },
+            },
+            // Only set these fields if creating a new document
+            $setOnInsert: {
+              addresses: [],
+              // Add other default fields for new users here
+            },
+          },
+          {
+            upsert: true, // Create if doesn't exist
+            new: true, // Return the updated document
+            runValidators: true, // Run schema validators
+          }
+        );
+
+        console.log(
+          `User ${user.isNew ? "created" : "updated"} for phone: ${phone}`
+        );
+
+        // Generate token
+        let token;
+        try {
+          token = generateToken(user._id);
+        } catch (tokenError) {
+          console.error("Error generating token:", tokenError);
+          return res.status(500).json({
+            message: "Token generation failed",
+            error: "Authentication error",
+          });
+        }
+
+        return res.status(200).json({
+          message: "OTP verified successfully",
+          user: {
+            _id: user._id,
+            phone: user.phone,
+            isVerified: user.isVerified,
+            otpVerification: user.otpVerification,
+            email: user.email,
+          },
+          token,
+          verified: true,
+        });
+      } catch (dbError) {
+        console.error("Database error:", dbError);
         return res.status(500).json({
-          message: "Token generation failed",
-          error: "Authentication error",
+          message: "Database operation failed",
+          error: "Database error",
         });
       }
-
-      return res.status(200).json({
-        message: "OTP verified successfully",
-        user: {
-          _id: user._id,
-          phone: user.phone,
-          isVerified: user.isVerified,
-          otpVerification: user.otpVerification,
-          email: user.email,
-        },
-        token,
-        verified: true,
-      });
     } else {
       // Wrong OTP - increment attempts
       storedData.attempts += 1;
