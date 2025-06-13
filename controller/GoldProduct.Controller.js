@@ -1,6 +1,7 @@
 const GoldProduct = require("../models/GoldProduct.model");
 const Pricing = require("../models/Price.model");
 const { cloudinary } = require("../config/cloudinary");
+const JewelleryCategory = require("../models/Category.Model");
 
 const addGoldProduct = async (req, res) => {
   console.log("Request body:", req.body);
@@ -243,28 +244,31 @@ const getGoldProducts = async (req, res) => {
 
 const getPaginatedGoldProducts = async (req, res) => {
   try {
-    // Read page, limit, category, and search from query params
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 15;
     const skip = (page - 1) * limit;
 
     const { category, search } = req.query;
-
-    // Build dynamic filter
     const filter = {};
 
+    // Handle category by name (if category is passed as name)
     if (category) {
-      filter.category = category;
+      filter.category = { $regex: category, $options: "i" }; // allows partial or exact case-insensitive match
     }
 
+    // Handle search by title (case-insensitive partial match)
     if (search) {
-      filter.title = { $regex: search, $options: "i" }; // case-insensitive partial match
+      filter.$or = [
+        { name: { $regex: search, $options: "i" } },
+        // You can add more fields to search in if needed
+        // { description: { $regex: search, $options: "i" } }
+      ];
     }
 
-    // Total count based on filters
+    // Count total matching products
     const totalProducts = await GoldProduct.countDocuments(filter);
 
-    // Fetch paginated products
+    // Fetch paginated and sorted products
     const products = await GoldProduct.find(filter)
       .sort({ createdAt: -1 })
       .skip(skip)
@@ -288,13 +292,13 @@ const getPaginatedGoldProducts = async (req, res) => {
       },
     ]);
 
-    // Create lookup for carat prices
+    // Map prices to carat
     const pricesByCarat = {};
     latestPrices.forEach((price) => {
       pricesByCarat[price._id] = price.TodayPricePerGram;
     });
 
-    // Add calculated price data to each product
+    // Add calculated price details
     const productsWithPrices = products.map((product) => {
       const productObj = product.toObject();
       const caratPrice = pricesByCarat[product.carat] || 0;
@@ -313,7 +317,7 @@ const getPaginatedGoldProducts = async (req, res) => {
       return productObj;
     });
 
-    // Send response
+    // Final Response
     res.status(200).json({
       currentPage: page,
       totalPages: Math.ceil(totalProducts / limit),

@@ -23,10 +23,11 @@ router.post("/add", cpUpload, addGoldProduct);
 // // ✅ Get all gold products
 router.get("/", getGoldProducts);
 
+router.get("/products/paginated", getPaginatedGoldProducts);
 // // ✅ Search & Filter gold products
 // // ✅ Get a single gold product by ID
 router.get("/:id", getGoldProductById);
-router.get("/products/paginated", getPaginatedGoldProducts);
+
 // // ✅ Update a gold product (with file upload for coverImage and images)
 router.put("/:id", cpUpload, updateGoldProduct);
 
