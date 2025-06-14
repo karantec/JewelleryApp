@@ -117,6 +117,10 @@ const userSchema = new mongoose.Schema(
       unique: true,
       sparse: true,
     },
+    appleId: {
+      type: String,
+      unique: true,
+    },
     authProvider: {
       type: String,
       enum: ["email", "google", "phone"],

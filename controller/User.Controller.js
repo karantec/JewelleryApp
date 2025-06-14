@@ -454,6 +454,182 @@ const verifyOTP = async (req, res) => {
     });
   }
 };
+const appleSignIn = async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    console.log("Received Apple ID Token:", idToken);
+
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Apple ID token is required",
+      });
+    }
+
+    let decodedToken;
+
+    // Verify the Firebase ID token
+    try {
+      if (
+        process.env.NODE_ENV === "development" &&
+        process.env.FIREBASE_AUTH_EMULATOR_HOST
+      ) {
+        // For Firebase Emulator - decode without verification
+        decodedToken = jwt.decode(idToken);
+        console.log("Emulator - Decoded Token:", decodedToken);
+
+        if (!decodedToken) {
+          throw new Error("Invalid token format");
+        }
+      } else {
+        // Production - verify with Firebase Admin
+        decodedToken = await admin.auth().verifyIdToken(idToken);
+        console.log("Production - Verified Token:", decodedToken);
+      }
+    } catch (error) {
+      console.error("Token verification failed:", error);
+      return res.status(401).json({
+        success: false,
+        message: "Invalid Apple ID token",
+        error:
+          process.env.NODE_ENV === "development" ? error.message : undefined,
+      });
+    }
+
+    // Extract user information from Firebase token
+    const uid = decodedToken.uid || decodedToken.user_id;
+    const email = decodedToken.email || null;
+    const name =
+      decodedToken.name ||
+      decodedToken.display_name ||
+      (email ? email.split("@")[0] : `User_${uid.slice(-8)}`);
+    const picture = decodedToken.picture || "";
+    const isVerified = decodedToken.email_verified ?? true; // Apple emails are typically verified
+
+    // Apple-specific fields
+    const providerId = decodedToken.firebase?.sign_in_provider || "apple.com";
+    const appleId =
+      decodedToken.firebase?.identities?.["apple.com"]?.[0] || uid;
+
+    console.log("Extracted user data:", {
+      uid,
+      email,
+      name,
+      providerId,
+      appleId,
+      isVerified,
+    });
+
+    // Check for existing user
+    let user = await User.findOne({
+      $or: [{ email: email }, { firebaseUid: uid }, { appleId: appleId }],
+    });
+
+    let isNewUser = false;
+
+    if (user) {
+      // Existing user — selectively update missing fields
+      const updateFields = {};
+
+      if (!user.firebaseUid) updateFields.firebaseUid = uid;
+      if (!user.appleId) updateFields.appleId = appleId;
+      if (!user.email && email) updateFields.email = email;
+      if (!user.profileImage && picture) updateFields.profileImage = picture;
+      if (!user.isVerified && isVerified) updateFields.isVerified = isVerified;
+      if (!user.name && name) updateFields.name = name;
+      if (!user.authProvider || user.authProvider === "email") {
+        updateFields.authProvider = "apple";
+      }
+
+      updateFields.lastLoginAt = new Date();
+
+      if (Object.keys(updateFields).length > 0) {
+        user = await User.findByIdAndUpdate(user._id, updateFields, {
+          new: true,
+        }).select("-password");
+        console.log("Updated existing user:", user.email);
+      }
+    } else {
+      // New user — create and save
+      isNewUser = true;
+
+      const newUserData = {
+        name,
+        email,
+        firebaseUid: uid,
+        appleId,
+        profileImage: picture,
+        isVerified,
+        addresses: [],
+        authProvider: "apple",
+        lastLoginAt: new Date(),
+      };
+
+      console.log("Creating new user with data:", newUserData);
+
+      user = new User(newUserData);
+      await user.save();
+      console.log("Created new user:", user.email || user.name);
+    }
+
+    // Generate your app's own JWT for session
+    const token = generateToken(user._id);
+
+    // Return success response
+    return res.status(200).json({
+      success: true,
+      message: isNewUser
+        ? "Account created and signed in successfully"
+        : "Signed in successfully",
+      isNewUser,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email || "",
+        phone: user.phone || "",
+        profileImage: user.profileImage || "",
+        addresses: user.addresses || [],
+        isVerified: user.isVerified,
+        authProvider: user.authProvider || "apple",
+        firebaseUid: user.firebaseUid,
+        appleId: user.appleId,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error("Apple Sign-In Error:", error);
+
+    // Handle specific Firebase errors
+    if (error.code === "auth/id-token-expired") {
+      return res.status(401).json({
+        success: false,
+        message: "Session expired. Please sign in again.",
+      });
+    }
+
+    if (error.code === "auth/invalid-id-token") {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid authentication. Please try again.",
+      });
+    }
+
+    if (error.code === "auth/project-not-found") {
+      return res.status(500).json({
+        success: false,
+        message: "Authentication service not configured properly.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Sign-in failed. Please try again.",
+      error: process.env.NODE_ENV === "development" ? error.message : undefined,
+    });
+  }
+};
 
 const startOTPCleanup = () => {
   setInterval(cleanExpiredOTPs, 60000); // Clean every minute
@@ -913,4 +1089,5 @@ module.exports = {
   updateUserProfile,
   startOTPCleanup,
   resendOTP,
+  appleSignIn,
 };

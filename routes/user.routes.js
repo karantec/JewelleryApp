@@ -11,6 +11,7 @@ const {
   getUserProfile,
   googleSignIn,
   resendOTP,
+  appleSignIn,
 } = require("../controller/User.Controller");
 const { verifyToken } = require("../middleware/authmiddleware");
 
@@ -30,6 +31,7 @@ router.post("/adminLogin", adminLogin);
 
 router.post("/login", userLogin);
 router.post("/google-signin", googleSignIn);
+router.post("/apple-signin", appleSignIn); // Assuming Apple Sign-In uses the same login method
 // Protected Routes (Require Authentication)
 
 router.get("/users", getAllUsers);
